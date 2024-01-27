@@ -13,6 +13,16 @@ scanTokens str = go str 1 [] []
     | Just token <- simpleCharToToken x line =
         let newTokenAcc = tokensAcc ++ [token]
          in go xs line newTokenAcc errorsAcc
+    | isOperatorToken x =
+        if head xs == '='
+          then
+            let token = buildLongOperatorToken x line
+                newTokenAcc = tokensAcc ++ [token]
+             in go (tail xs) line newTokenAcc errorsAcc
+          else
+            let token = buildShortOperatorToken x line
+                newTokenAcc = tokensAcc ++ [token]
+             in go xs line newTokenAcc errorsAcc
     | x == '\n' = go xs (line + 1) tokensAcc errorsAcc
     | isSpace x = go xs line tokensAcc errorsAcc
     | otherwise =
@@ -31,3 +41,20 @@ simpleCharToToken '+' line = Just $ TOKEN PLUS "+" NONE line
 simpleCharToToken ';' line = Just $ TOKEN SEMICOLON ";" NONE line
 simpleCharToToken '*' line = Just $ TOKEN STAR "*" NONE line
 simpleCharToToken _ _ = Nothing
+
+isOperatorToken :: Char -> Bool
+isOperatorToken c = c == '=' || c == '!' || c == '<' || c == '>'
+
+buildShortOperatorToken :: Char -> Int -> Token
+buildShortOperatorToken '=' line = TOKEN EQUAL "=" NONE line
+buildShortOperatorToken '!' line = TOKEN BANG "!" NONE line
+buildShortOperatorToken '<' line = TOKEN LESS "<" NONE line
+buildShortOperatorToken '>' line = TOKEN GREATER ">" NONE line
+buildShortOperatorToken c line = error $ "Line: " ++ show line ++ ". Expected operator char but got: '" ++ [c] ++ "'"
+
+buildLongOperatorToken :: Char -> Int -> Token
+buildLongOperatorToken '=' line = TOKEN EQUAL_EQUAL "==" NONE line
+buildLongOperatorToken '!' line = TOKEN BANG_EQUAL "!=" NONE line
+buildLongOperatorToken '<' line = TOKEN LESS_EQUAL "<=" NONE line
+buildLongOperatorToken '>' line = TOKEN GREATER_EQUAL ">=" NONE line
+buildLongOperatorToken c line = error $ "Line: " ++ show line ++ ". Expected operator char but got: '" ++ [c] ++ "'"
