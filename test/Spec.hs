@@ -16,5 +16,8 @@ tests = do
     it "Scans all simple characters" $ do
       let result = map tokenToTokenType $ Scanner.scanTokens "(){},.-+;*"
       result `shouldBe` [Tokens.LEFT_PAREN, Tokens.RIGHT_PAREN, Tokens.LEFT_BRACE, Tokens.RIGHT_BRACE, Tokens.COMMA, Tokens.DOT, Tokens.MINUS, Tokens.PLUS, Tokens.SEMICOLON, Tokens.STAR]
+    it "Scans all simple characters and ignores whitespace" $ do
+      let result = map tokenToTokenType $ Scanner.scanTokens "(){}\n,. -+ ;   *\r"
+      result `shouldBe` [Tokens.LEFT_PAREN, Tokens.RIGHT_PAREN, Tokens.LEFT_BRACE, Tokens.RIGHT_BRACE, Tokens.COMMA, Tokens.DOT, Tokens.MINUS, Tokens.PLUS, Tokens.SEMICOLON, Tokens.STAR]
     it "Throws an error for invalid characters" $ do
       evaluate (Scanner.scanTokens "{@}") `shouldThrow` anyException

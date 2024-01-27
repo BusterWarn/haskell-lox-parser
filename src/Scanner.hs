@@ -1,5 +1,6 @@
 module Scanner (scanTokens) where
 
+import Data.Char (isSpace)
 import Tokens
 
 scanTokens :: [Char] -> [Token]
@@ -12,6 +13,8 @@ scanTokens str = go str 1 [] []
     | Just token <- simpleCharToToken x line =
         let newTokenAcc = tokensAcc ++ [token]
          in go xs line newTokenAcc errorsAcc
+    | x == '\n' = go xs (line + 1) tokensAcc errorsAcc
+    | isSpace x = go xs line tokensAcc errorsAcc
     | otherwise =
         let newErrorsAcc = errorsAcc ++ ["Invalid character: '" ++ [x] ++ "' at line " ++ show line]
          in go xs line tokensAcc newErrorsAcc
