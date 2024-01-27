@@ -23,6 +23,14 @@ scanTokens str = go str 1 [] []
             let token = buildShortOperatorToken x line
                 newTokenAcc = tokensAcc ++ [token]
              in go xs line newTokenAcc errorsAcc
+    | x == '/' =
+        if head xs == '/'
+          then
+            let newXs = swallowComment xs
+             in go newXs (line + 1) tokensAcc errorsAcc
+          else
+            let newTokensAcc = tokensAcc ++ [TOKEN SLASH "/" NONE line]
+             in go xs line newTokensAcc errorsAcc
     | x == '\n' = go xs (line + 1) tokensAcc errorsAcc
     | isSpace x = go xs line tokensAcc errorsAcc
     | otherwise =
@@ -58,3 +66,8 @@ buildLongOperatorToken '!' line = TOKEN BANG_EQUAL "!=" NONE line
 buildLongOperatorToken '<' line = TOKEN LESS_EQUAL "<=" NONE line
 buildLongOperatorToken '>' line = TOKEN GREATER_EQUAL ">=" NONE line
 buildLongOperatorToken c line = error $ "Line: " ++ show line ++ ". Expected operator char but got: '" ++ [c] ++ "'"
+
+swallowComment :: String -> String
+swallowComment [] = []
+swallowComment ('\n' : xs) = xs
+swallowComment (_ : xs) = swallowComment xs

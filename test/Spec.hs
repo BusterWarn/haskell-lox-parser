@@ -25,3 +25,6 @@ tests = do
     it "Scans operator tokens" $ do
       let result = map tokenToTokenType $ Scanner.scanTokens "= ! < > == != <= >="
       result `shouldBe` [EQUAL, BANG, LESS, GREATER, EQUAL_EQUAL, BANG_EQUAL, LESS_EQUAL, GREATER_EQUAL]
+    it "Does not scan tokens" $ do
+      let result = map tokenToTokenType $ Scanner.scanTokens "/+/ // / comment = a * \n//\n ** ==//"
+      result `shouldBe` [SLASH, PLUS, SLASH, STAR, STAR, EQUAL_EQUAL]
