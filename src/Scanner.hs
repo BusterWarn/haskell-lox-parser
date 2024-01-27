@@ -1,8 +1,5 @@
 module Scanner (scanTokens) where
 
-import Data.Char
-import Data.Maybe
-
 import Tokens
 
 scanTokens :: [Char] -> [Token]
@@ -31,16 +28,3 @@ simpleCharToToken '+' line = Just $ TOKEN PLUS "+" NONE line
 simpleCharToToken ';' line = Just $ TOKEN SEMICOLON ";" NONE line
 simpleCharToToken '*' line = Just $ TOKEN STAR "*" NONE line
 simpleCharToToken _ _ = Nothing
-
--- isSimpleChar :: Char -> Bool
--- isSimpleChar '(' = True
--- isSimpleChar ')' = True
--- isSimpleChar '{' = True
--- isSimpleChar '}' = True
--- isSimpleChar ',' = True
--- isSimpleChar '.' = True
--- isSimpleChar '-' = True
--- isSimpleChar '+' = True
--- isSimpleChar ';' = True
--- isSimpleChar '*' = True
--- isSimpleChar _ = False

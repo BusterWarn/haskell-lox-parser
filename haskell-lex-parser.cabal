@@ -6,7 +6,7 @@ cabal-version: 1.12
 
 name:           haskell-lex-parser
 version:        0.0.0
-description:    Advent Of Code 2023
+description:    Lex Interpereter
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -44,4 +44,20 @@ executable haskell-lex-parser-exe
       base ==4.17.2.0
     , containers
     , directory
+    , haskell-lex-parser
+  default-language: Haskell2010
+
+test-suite haskell-lex-parser-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_haskell_lex_parser
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base ==4.17.2.0
+    , containers
+    , haskell-lex-parser
+    , hspec
   default-language: Haskell2010
