@@ -31,6 +31,9 @@ scanTokens str = go str 1 [] []
           else
             let newTokensAcc = tokensAcc ++ [TOKEN SLASH "/" NONE line]
              in go xs line newTokensAcc errorsAcc
+    | x == '"' =
+        let (newXs, newLine, newTokensAcc, newErrorsAcc) = consumeString xs line tokensAcc errorsAcc []
+         in go newXs newLine newTokensAcc newErrorsAcc
     | x == '\n' = go xs (line + 1) tokensAcc errorsAcc
     | isSpace x = go xs line tokensAcc errorsAcc
     | otherwise =
@@ -71,3 +74,21 @@ swallowComment :: String -> String
 swallowComment [] = []
 swallowComment ('\n' : xs) = xs
 swallowComment (_ : xs) = swallowComment xs
+
+consumeString :: String -> Int -> [Token] -> [String] -> String -> (String, Int, [Token], [String])
+consumeString [] line tokensAcc errorsAcc stringAcc =
+  let newError = "String begin but does not end. String contains \"" ++ stringAcc ++ "\"" :: String
+   in ([], line, tokensAcc, errorsAcc ++ [newError])
+consumeString ('"' : xs) line tokensAcc errorsAcc stringAcc =
+  let newTokenAcc = TOKEN STRING ("\"" ++ stringAcc ++ "\"") (STR stringAcc) line
+   in (xs, line, tokensAcc ++ [newTokenAcc], errorsAcc)
+consumeString ('\n' : xs) line tokensAcc errorsAcc stringAcc =
+  let newStringAcc = stringAcc ++ ['\n']
+      newLine = line + 1
+   in consumeString xs newLine tokensAcc errorsAcc newStringAcc
+consumeString (x : xs) line tokensAcc errorsAcc stringAcc =
+  let newStringAcc = stringAcc ++ [x]
+   in consumeString xs line tokensAcc errorsAcc newStringAcc
+
+-- consumeString [] line tokensAcc errorsAcc str =
+--   let newStringToken = TOKEN String str

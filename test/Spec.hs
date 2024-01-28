@@ -28,3 +28,8 @@ tests = do
     it "Does not scan tokens" $ do
       let result = map tokenToTokenType $ Scanner.scanTokens "/+/ // / comment = a * \n//\n ** ==//"
       result `shouldBe` [SLASH, PLUS, SLASH, STAR, STAR, EQUAL_EQUAL]
+    it "Can scan strings" $ do
+      let result = map tokenToTokenType $ Scanner.scanTokens "+ \" Hi \n Mom! //\" =="
+      result `shouldBe` [PLUS, STRING, EQUAL_EQUAL]
+    it "Throws an error if string does not end" $ do
+      evaluate (Scanner.scanTokens "+ \" Hi \n Mom! // ==") `shouldThrow` anyException
