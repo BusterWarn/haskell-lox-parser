@@ -33,3 +33,6 @@ tests = do
       result `shouldBe` [PLUS, STRING, EQUAL_EQUAL]
     it "Throws an error if string does not end" $ do
       evaluate (Scanner.scanTokens "+ \" Hi \n Mom! // ==") `shouldThrow` anyException
+    it "Can scan numbers" $ do
+      let result = map tokenToTokenType $ Scanner.scanTokens "1 .1 1. 1.1 1.1.\n123456789 12345.6789"
+      result `shouldBe` [NUMBER, DOT, NUMBER, NUMBER, DOT, NUMBER, NUMBER, DOT, NUMBER, NUMBER]

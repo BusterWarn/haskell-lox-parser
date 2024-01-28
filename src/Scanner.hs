@@ -1,6 +1,6 @@
 module Scanner (scanTokens) where
 
-import Data.Char (isSpace)
+import Data.Char (isDigit, isSpace)
 import Tokens
 
 scanTokens :: [Char] -> [Token]
@@ -9,7 +9,7 @@ scanTokens str = go str 1 [] []
   go [] _ tokens errors
     | not (null errors) = error $ "Encountered errors while scanning: " ++ show errors
     | otherwise = tokens
-  go (x : xs) line tokensAcc errorsAcc
+  go current_string@(x : xs) line tokensAcc errorsAcc
     | Just token <- tryBuildSimpleToken x line =
         let newTokenAcc = tokensAcc ++ [token]
          in go xs line newTokenAcc errorsAcc
@@ -34,6 +34,9 @@ scanTokens str = go str 1 [] []
     | x == '"' =
         let (newXs, newLine, newTokensAcc, newErrorsAcc) = consumeString xs line tokensAcc errorsAcc []
          in go newXs newLine newTokensAcc newErrorsAcc
+    | isDigit x =
+        let (newXs, newTokensAcc, newErrorsAcc) = buildNumber current_string line tokensAcc errorsAcc ""
+         in go newXs line newTokensAcc newErrorsAcc
     | x == '\n' = go xs (line + 1) tokensAcc errorsAcc
     | isSpace x = go xs line tokensAcc errorsAcc
     | otherwise =
@@ -90,5 +93,30 @@ consumeString (x : xs) line tokensAcc errorsAcc stringAcc =
   let newStringAcc = stringAcc ++ [x]
    in consumeString xs line tokensAcc errorsAcc newStringAcc
 
--- consumeString [] line tokensAcc errorsAcc str =
---   let newStringToken = TOKEN String str
+buildNumber :: String -> Int -> [Token] -> [String] -> String -> (String, [Token], [String])
+buildNumber [] line tokensAcc errorsAcc [] =
+  let newError = "Empty digit on line " ++ show line
+   in ([], tokensAcc, errorsAcc ++ [newError])
+buildNumber [] line tokensAcc errorsAcc numberAsString =
+  let numberToken = buidNumberTokenFromString numberAsString line
+   in ([], tokensAcc ++ [numberToken], errorsAcc)
+buildNumber str@(x : xs) line tokensAcc errorsAcc numberAsStringAcc
+  | isDigit x =
+      let newNumberAsStringAcc = numberAsStringAcc ++ [x]
+       in buildNumber xs line tokensAcc errorsAcc newNumberAsStringAcc
+  | x == '.' =
+      if '.' `elem` numberAsStringAcc || null xs || not (isDigit $ head xs)
+        then
+          let numberToken = buidNumberTokenFromString numberAsStringAcc line
+           in (str, tokensAcc ++ [numberToken], errorsAcc)
+        else
+          let newNumberAsStringAcc = numberAsStringAcc ++ [x]
+           in buildNumber xs line tokensAcc errorsAcc newNumberAsStringAcc
+  | otherwise =
+      let numberToken = buidNumberTokenFromString numberAsStringAcc line
+       in (str, tokensAcc ++ [numberToken], errorsAcc)
+
+buidNumberTokenFromString :: String -> Int -> Token
+buidNumberTokenFromString numberAsString line =
+  let number = read numberAsString :: Float
+   in TOKEN NUMBER numberAsString (NUM number) line
