@@ -18,7 +18,7 @@ tests = do
       let result = map tokenToTokenType $ Scanner.scanTokens "(){},.-+;*"
       result `shouldBe` [LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, COMMA, DOT, MINUS, PLUS, SEMICOLON, STAR]
     it "Scans all simple characters and ignores whitespace" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "(){}\n,. -+ ;   *\r"
+      let result = map tokenToTokenType $ Scanner.scanTokens "(){}\n,. -+\t;   *\r"
       result `shouldBe` [LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, COMMA, DOT, MINUS, PLUS, SEMICOLON, STAR]
     it "Throws an error for invalid characters" $ do
       evaluate (Scanner.scanTokens "{@}") `shouldThrow` anyException
@@ -41,3 +41,7 @@ tests = do
       result `shouldBe` [IDENTIFIER, VAR, IDENTIFIER, NUMBER, IDENTIFIER, IDENTIFIER, IDENTIFIER, DOT, FOR, AND, TRUE]
     it "Cannot scan invalid characters in identifiers" $ do
       evaluate (Scanner.scanTokens "hi d@d") `shouldThrow` anyException
+    it "Empty input should throw exception" $ do
+      evaluate (Scanner.scanTokens "") `shouldThrow` anyException
+    it "Input with only whitespace should throw error" $ do
+      evaluate (Scanner.scanTokens " \n\r   ") `shouldThrow` anyException

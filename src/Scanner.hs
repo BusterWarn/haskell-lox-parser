@@ -4,47 +4,52 @@ import Data.Char (isDigit, isLetter, isSpace)
 import Tokens
 
 scanTokens :: [Char] -> [Token]
-scanTokens str = go str 1 [] []
- where
-  go [] _ tokens errors
-    | not (null errors) = error $ "Encountered errors while scanning: " ++ show errors
-    | otherwise = tokens
-  go current_string@(x : xs) line tokensAcc errorsAcc
-    | Just token <- tryBuildSimpleToken x line =
-        let newTokenAcc = tokensAcc ++ [token]
-         in go xs line newTokenAcc errorsAcc
-    | isOperatorToken x =
-        if head xs == '='
-          then
-            let token = buildLongOperatorToken x line
-                newTokenAcc = tokensAcc ++ [token]
-             in go (tail xs) line newTokenAcc errorsAcc
-          else
-            let token = buildShortOperatorToken x line
-                newTokenAcc = tokensAcc ++ [token]
-             in go xs line newTokenAcc errorsAcc
-    | x == '/' =
-        if head xs == '/'
-          then
-            let newXs = swallowComment xs
-             in go newXs (line + 1) tokensAcc errorsAcc
-          else
-            let newTokensAcc = tokensAcc ++ [TOKEN SLASH "/" NONE line]
-             in go xs line newTokensAcc errorsAcc
-    | x == '"' =
-        let (newXs, newLine, newTokensAcc, newErrorsAcc) = consumeString xs line tokensAcc errorsAcc []
-         in go newXs newLine newTokensAcc newErrorsAcc
-    | isDigit x =
-        let (newXs, newTokensAcc, newErrorsAcc) = buildNumber current_string line tokensAcc errorsAcc ""
-         in go newXs line newTokensAcc newErrorsAcc
-    | isLetter x =
-        let (newXs, newTokensAcc, newErrorsAcc) = buildWord current_string line tokensAcc errorsAcc ""
-         in go newXs line newTokensAcc newErrorsAcc
-    | x == '\n' = go xs (line + 1) tokensAcc errorsAcc
-    | isSpace x = go xs line tokensAcc errorsAcc
-    | otherwise =
-        let newErrorsAcc = errorsAcc ++ ["Invalid character: '" ++ [x] ++ "' at line " ++ show line]
-         in go xs line tokensAcc newErrorsAcc
+scanTokens [] = error "Empty input string to scanner"
+scanTokens str =
+  let (tokens, errors, line) = scan str 1 [] []
+   in case (tokens, errors) of
+        ([], _) -> error $ "No tokens were actually scanned in " ++ show line ++ " lines!"
+        (_, _ : _) -> error $ show (length errors) ++ " errors were encountered: " ++ show errors
+        (_, _) -> tokens
+
+scan :: [Char] -> Int -> [Token] -> [String] -> ([Token], [String], Int)
+scan [] line tokens errors = (tokens, errors, line)
+scan current_string@(x : xs) line tokensAcc errorsAcc
+  | Just token <- tryBuildSimpleToken x line =
+      let newTokenAcc = tokensAcc ++ [token]
+       in scan xs line newTokenAcc errorsAcc
+  | isOperatorToken x =
+      if head xs == '='
+        then
+          let token = buildLongOperatorToken x line
+              newTokenAcc = tokensAcc ++ [token]
+           in scan (tail xs) line newTokenAcc errorsAcc
+        else
+          let token = buildShortOperatorToken x line
+              newTokenAcc = tokensAcc ++ [token]
+           in scan xs line newTokenAcc errorsAcc
+  | x == '/' =
+      if head xs == '/'
+        then
+          let newXs = swallowComment xs
+           in scan newXs (line + 1) tokensAcc errorsAcc
+        else
+          let newTokensAcc = tokensAcc ++ [TOKEN SLASH "/" NONE line]
+           in scan xs line newTokensAcc errorsAcc
+  | x == '"' =
+      let (newXs, newLine, newTokensAcc, newErrorsAcc) = consumeString xs line tokensAcc errorsAcc []
+       in scan newXs newLine newTokensAcc newErrorsAcc
+  | isDigit x =
+      let (newXs, newTokensAcc, newErrorsAcc) = buildNumber current_string line tokensAcc errorsAcc ""
+       in scan newXs line newTokensAcc newErrorsAcc
+  | isLetter x =
+      let (newXs, newTokensAcc, newErrorsAcc) = buildWord current_string line tokensAcc errorsAcc ""
+       in scan newXs line newTokensAcc newErrorsAcc
+  | x == '\n' = scan xs (line + 1) tokensAcc errorsAcc
+  | isSpace x = scan xs line tokensAcc errorsAcc
+  | otherwise =
+      let newErrorsAcc = errorsAcc ++ ["Invalid character: '" ++ [x] ++ "' at line " ++ show line]
+       in scan xs line tokensAcc newErrorsAcc
 
 tryBuildSimpleToken :: Char -> Int -> Maybe Token
 tryBuildSimpleToken '(' line = Just $ TOKEN LEFT_PAREN "(" NONE line
