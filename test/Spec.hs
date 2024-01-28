@@ -36,3 +36,8 @@ tests = do
     it "Can scan numbers" $ do
       let result = map tokenToTokenType $ Scanner.scanTokens "1 .1 1. 1.1 1.1.\n123456789 12345.6789"
       result `shouldBe` [NUMBER, DOT, NUMBER, NUMBER, DOT, NUMBER, NUMBER, DOT, NUMBER, NUMBER]
+    it "Can scan words and identifiers" $ do
+      let result = map tokenToTokenType $ Scanner.scanTokens "hi var m0m_ 1I loVe Y0U. for and true"
+      result `shouldBe` [IDENTIFIER, VAR, IDENTIFIER, NUMBER, IDENTIFIER, IDENTIFIER, IDENTIFIER, DOT, FOR, AND, TRUE]
+    it "Cannot scan invalid characters in identifiers" $ do
+      evaluate (Scanner.scanTokens "hi d@d") `shouldThrow` anyException

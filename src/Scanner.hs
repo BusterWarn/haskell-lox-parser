@@ -1,6 +1,6 @@
 module Scanner (scanTokens) where
 
-import Data.Char (isDigit, isSpace)
+import Data.Char (isDigit, isLetter, isSpace)
 import Tokens
 
 scanTokens :: [Char] -> [Token]
@@ -36,6 +36,9 @@ scanTokens str = go str 1 [] []
          in go newXs newLine newTokensAcc newErrorsAcc
     | isDigit x =
         let (newXs, newTokensAcc, newErrorsAcc) = buildNumber current_string line tokensAcc errorsAcc ""
+         in go newXs line newTokensAcc newErrorsAcc
+    | isLetter x =
+        let (newXs, newTokensAcc, newErrorsAcc) = buildWord current_string line tokensAcc errorsAcc ""
          in go newXs line newTokensAcc newErrorsAcc
     | x == '\n' = go xs (line + 1) tokensAcc errorsAcc
     | isSpace x = go xs line tokensAcc errorsAcc
@@ -120,3 +123,41 @@ buidNumberTokenFromString :: String -> Int -> Token
 buidNumberTokenFromString numberAsString line =
   let number = read numberAsString :: Float
    in TOKEN NUMBER numberAsString (NUM number) line
+
+buildWord :: String -> Int -> [Token] -> [String] -> String -> (String, [Token], [String])
+buildWord [] line tokensAcc errorsAcc [] =
+  let newError = "Empty word on line " ++ show line
+   in ([], tokensAcc, errorsAcc ++ [newError])
+buildWord [] line tokensAcc errorsAcc numberAsString =
+  let wordToken = buildWordFromString numberAsString line
+   in ([], tokensAcc ++ [wordToken], errorsAcc)
+buildWord str@(x : xs) line tokensAcc errorsAcc wordAcc
+  | isLoxAlphaNumerical x = buildWord xs line tokensAcc errorsAcc (wordAcc ++ [x])
+  | otherwise =
+      let wordToken = buildWordFromString wordAcc line
+       in (str, tokensAcc ++ [wordToken], errorsAcc)
+
+buildWordFromString :: String -> Int -> Token
+buildWordFromString "and" line = TOKEN AND "and" NONE line
+buildWordFromString "class" line = TOKEN CLASS "class" NONE line
+buildWordFromString "else" line = TOKEN ELSE "else" NONE line
+buildWordFromString "false" line = TOKEN FALSE "false" FALSE_LIT line
+buildWordFromString "for" line = TOKEN FOR "for" NONE line
+buildWordFromString "fun" line = TOKEN FUN "fun" NONE line
+buildWordFromString "if" line = TOKEN IF "if" NONE line
+buildWordFromString "nil" line = TOKEN NIL "nil" NIL_LIT line
+buildWordFromString "or" line = TOKEN OR "or" NONE line
+buildWordFromString "print" line = TOKEN PRINT "print" NONE line
+buildWordFromString "return" line = TOKEN RETURN "return" NONE line
+buildWordFromString "super" line = TOKEN SUPER "super" NONE line
+buildWordFromString "this" line = TOKEN THIS "this" NONE line
+buildWordFromString "true" line = TOKEN TRUE "true" TRUE_LIT line
+buildWordFromString "var" line = TOKEN VAR "var" NONE line
+buildWordFromString "while" line = TOKEN WHILE "while" NONE line
+buildWordFromString identifier line = TOKEN IDENTIFIER identifier (ID identifier) line
+
+isLoxLetter :: Char -> Bool
+isLoxLetter c = isLetter c || c == '_'
+
+isLoxAlphaNumerical :: Char -> Bool
+isLoxAlphaNumerical c = isLoxLetter c || isDigit c
