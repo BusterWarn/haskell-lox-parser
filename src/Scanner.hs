@@ -3,6 +3,20 @@ module Scanner (scanTokens) where
 import Data.Char (isDigit, isLetter, isSpace)
 import Tokens
 
+type SourceCode = [Char]
+type LoxSyntaxError = String
+type Line = Int
+
+{- |
+  'scanTokens' - Main function that scans a string of code and generates tokens.
+  Throws errors for any encountered scanning issues.
+
+  Input:
+    - '[Char]' - A string representing the code to be scanned.
+
+  Output:
+    - '[Token]' - A list of generated tokens.
+-}
 scanTokens :: [Char] -> [Token]
 scanTokens [] = error "Empty input string to scanner"
 scanTokens str =
@@ -12,7 +26,21 @@ scanTokens str =
         (_, _ : _) -> error $ show (length errors) ++ " errors were encountered: " ++ show errors
         (_, _) -> tokens
 
-scan :: [Char] -> Int -> [Token] -> [String] -> ([Token], [String], Int)
+{- |
+  'scan' - Recursive helper function for scanTokens that handles control flow and
+  tracks the current parsing position within the string.
+
+  Input:
+    - 'SourceCode' - Current part of the code string being processed.
+    - 'Line' - Current line number.
+    - '[Token]' - Accumulated list of tokens.
+    - '[LoxSyntaxError]' - Accumulated list of error messages.
+
+  Output:
+    - '([Token], [LoxSyntaxError], Line)' - Tuple containing the final list of tokens,
+      errors encountered, and the final line number.
+-}
+scan :: SourceCode -> Line -> [Token] -> [LoxSyntaxError] -> ([Token], [LoxSyntaxError], Line)
 scan [] line tokens errors = (tokens, errors, line)
 scan current_string@(x : xs) line tokensAcc errorsAcc
   | Just token <- tryBuildSimpleToken x line =
@@ -51,7 +79,18 @@ scan current_string@(x : xs) line tokensAcc errorsAcc
       let newErrorsAcc = errorsAcc ++ ["Invalid character: '" ++ [x] ++ "' at line " ++ show line]
        in scan xs line tokensAcc newErrorsAcc
 
-tryBuildSimpleToken :: Char -> Int -> Maybe Token
+{- |
+  'tryBuildSimpleToken' - Attempts to construct a simple token (like '*' or '+')
+  based on the provided character.
+
+  Input:
+    - 'Char' - Character to evaluate.
+    - 'Line' - Current line number.
+
+  Output:
+    - 'Maybe Token' - Just Token if a valid token is matched, Nothing otherwise.
+-}
+tryBuildSimpleToken :: Char -> Line -> Maybe Token
 tryBuildSimpleToken '(' line = Just $ TOKEN LEFT_PAREN "(" NONE line
 tryBuildSimpleToken ')' line = Just $ TOKEN RIGHT_PAREN ")" NONE line
 tryBuildSimpleToken '{' line = Just $ TOKEN LEFT_BRACE "{" NONE line
@@ -67,26 +106,50 @@ tryBuildSimpleToken _ _ = Nothing
 isOperatorToken :: Char -> Bool
 isOperatorToken c = c == '=' || c == '!' || c == '<' || c == '>'
 
-buildShortOperatorToken :: Char -> Int -> Token
+buildShortOperatorToken :: Char -> Line -> Token
 buildShortOperatorToken '=' line = TOKEN EQUAL "=" NONE line
 buildShortOperatorToken '!' line = TOKEN BANG "!" NONE line
 buildShortOperatorToken '<' line = TOKEN LESS "<" NONE line
 buildShortOperatorToken '>' line = TOKEN GREATER ">" NONE line
 buildShortOperatorToken c line = error $ "Line: " ++ show line ++ ". Expected operator char but got: '" ++ [c] ++ "'"
 
-buildLongOperatorToken :: Char -> Int -> Token
+buildLongOperatorToken :: Char -> Line -> Token
 buildLongOperatorToken '=' line = TOKEN EQUAL_EQUAL "==" NONE line
 buildLongOperatorToken '!' line = TOKEN BANG_EQUAL "!=" NONE line
 buildLongOperatorToken '<' line = TOKEN LESS_EQUAL "<=" NONE line
 buildLongOperatorToken '>' line = TOKEN GREATER_EQUAL ">=" NONE line
 buildLongOperatorToken c line = error $ "Line: " ++ show line ++ ". Expected operator char but got: '" ++ [c] ++ "'"
 
-swallowComment :: String -> String
+{- |
+  'swallowComment' - Processes a comment part of the code and finds the position
+  where the code resumes after the comment.
+
+  Input:
+    - 'SourceCode' - The part of the code string starting with a comment.
+
+  Output:
+    - 'SourceCode' - Remaining code string after the comment.
+-}
+swallowComment :: SourceCode -> SourceCode
 swallowComment [] = []
 swallowComment ('\n' : xs) = xs
 swallowComment (_ : xs) = swallowComment xs
 
-consumeString :: String -> Int -> [Token] -> [String] -> String -> (String, Int, [Token], [String])
+{- |
+  'consumeString' - Parses a string literal from the code.
+
+  Input:
+    - 'SourceCode' - Current part of the code string being processed.
+    - 'Line' - Current line number.
+    - '[Token]' - Accumulated list of tokens.
+    - '[LoxSyntaxError]' - Accumulated list of error messages.
+    - 'String' - Accumulator for the string being constructed.
+
+  Output:
+    - '(SourceCode, Line, [Token], [LoxSyntaxError ])' - Tuple containing the remaining
+      code string, updated line number, accumulated tokens and accumalated errors.
+-}
+consumeString :: SourceCode -> Line -> [Token] -> [LoxSyntaxError] -> String -> (SourceCode, Line, [Token], [LoxSyntaxError])
 consumeString [] line tokensAcc errorsAcc stringAcc =
   let newError = "String begin but does not end. String contains \"" ++ stringAcc ++ "\"" :: String
    in ([], line, tokensAcc, errorsAcc ++ [newError])
@@ -101,7 +164,21 @@ consumeString (x : xs) line tokensAcc errorsAcc stringAcc =
   let newStringAcc = stringAcc ++ [x]
    in consumeString xs line tokensAcc errorsAcc newStringAcc
 
-buildNumber :: String -> Int -> [Token] -> [String] -> String -> (String, [Token], [String])
+{- |
+  'buildNumber' - Processes numeric literals from the code.
+
+  Input:
+    - 'SourceCode' - Current part of the code string being processed.
+    - 'Line' - Current line number.
+    - '[Token]' - Accumulated list of tokens.
+    - '[LoxSyntaxError]' - Accumulated list of error messages.
+    - 'String' - Accumulator for the numeric literal being constructed.
+
+  Output:
+    - '(SourceCode, [Token], [LoxSyntaxError])' - Tuple containing the remaining
+      code string, accumulated tokens and accumulated errors.
+-}
+buildNumber :: SourceCode -> Line -> [Token] -> [LoxSyntaxError] -> String -> (SourceCode, [Token], [LoxSyntaxError])
 buildNumber [] line tokensAcc errorsAcc [] =
   let newError = "Empty digit on line " ++ show line
    in ([], tokensAcc, errorsAcc ++ [newError])
@@ -124,12 +201,26 @@ buildNumber str@(x : xs) line tokensAcc errorsAcc numberAsStringAcc
       let numberToken = buidNumberTokenFromString numberAsStringAcc line
        in (str, tokensAcc ++ [numberToken], errorsAcc)
 
-buidNumberTokenFromString :: String -> Int -> Token
+buidNumberTokenFromString :: String -> Line -> Token
 buidNumberTokenFromString numberAsString line =
   let number = read numberAsString :: Float
    in TOKEN NUMBER numberAsString (NUM number) line
 
-buildWord :: String -> Int -> [Token] -> [String] -> String -> (String, [Token], [String])
+{- |
+  'buildWord' - Processes identifiers/keywords from the code.
+
+  Input:
+    - 'SourceCode' - Current part of the code string being processed.
+    - 'Line' - Current line number.
+    - '[Token]' - Accumulated list of tokens.
+    - '[LoxSyntaxError]' - Accumulated list of error messages.
+    - 'String' - Accumulator for the identifier/keyword being constructed.
+
+  Output:
+    - '(SourceCode, [Token], [LoxSyntaxError])' - Tuple containing the remaining
+      code string, accumulated tokens and accumalated errors.
+-}
+buildWord :: SourceCode -> Line -> [Token] -> [LoxSyntaxError] -> String -> (SourceCode, [Token], [LoxSyntaxError])
 buildWord [] line tokensAcc errorsAcc [] =
   let newError = "Empty word on line " ++ show line
    in ([], tokensAcc, errorsAcc ++ [newError])
@@ -142,7 +233,7 @@ buildWord str@(x : xs) line tokensAcc errorsAcc wordAcc
       let wordToken = buildWordFromString wordAcc line
        in (str, tokensAcc ++ [wordToken], errorsAcc)
 
-buildWordFromString :: String -> Int -> Token
+buildWordFromString :: String -> Line -> Token
 buildWordFromString "and" line = TOKEN AND "and" NONE line
 buildWordFromString "class" line = TOKEN CLASS "class" NONE line
 buildWordFromString "else" line = TOKEN ELSE "else" NONE line
