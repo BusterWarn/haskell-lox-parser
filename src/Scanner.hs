@@ -4,7 +4,6 @@ import Data.Char (isDigit, isLetter, isSpace)
 import Tokens
 
 type SourceCode = [Char]
-type LoxSyntaxError = String
 
 {- |
   The 'Pos' data type represents a position in the source code.
@@ -30,6 +29,15 @@ incrLine (Pos l _) = Pos (l + 1) 1
 
 incrCol :: Pos -> Pos
 incrCol (Pos l c) = Pos l (c + 1)
+
+data LoxSyntaxError
+  = SinglePosError String Pos
+  | RangePosError String Pos Pos
+  deriving (Eq)
+
+instance Show LoxSyntaxError where
+  show (SinglePosError msg pos) = msg ++ " at " ++ show pos
+  show (RangePosError msg startPos endPos) = msg ++ " from " ++ show startPos ++ " to " ++ show endPos
 
 {- |
   'scanTokens' - Main function that scans a string of code and generates tokens.
@@ -66,7 +74,7 @@ scanTokens str =
 -}
 scan :: SourceCode -> Pos -> [Token] -> [LoxSyntaxError] -> ([Token], [LoxSyntaxError], Pos)
 scan [] pos tokens errors = (tokens, errors, pos)
-scan current_string@(x : xs) pos@(Pos l c) tokensAcc errorsAcc
+scan current_string@(x : xs) pos@(Pos l _) tokensAcc errorsAcc
   | Just token <- tryBuildSimpleToken x pos =
       let newTokenAcc = tokensAcc ++ [token]
        in scan xs pos newTokenAcc errorsAcc
@@ -100,7 +108,7 @@ scan current_string@(x : xs) pos@(Pos l c) tokensAcc errorsAcc
   | x == '\n' = scan xs (incrLine pos) tokensAcc errorsAcc
   | isSpace x = scan xs (incrCol pos) tokensAcc errorsAcc
   | otherwise =
-      let newErrorsAcc = errorsAcc ++ ["Invalid character: '" ++ [x] ++ "' at pos " ++ show l ++ ":" ++ show c]
+      let newErrorsAcc = errorsAcc ++ [SinglePosError ("Unexpected Char: " ++ [x]) pos]
        in scan xs (incrCol pos) tokensAcc newErrorsAcc
 
 {- |
@@ -175,7 +183,7 @@ swallowComment (_ : xs) = swallowComment xs
 -}
 consumeString :: SourceCode -> Pos -> [Token] -> [LoxSyntaxError] -> String -> (SourceCode, Pos, [Token], [LoxSyntaxError])
 consumeString [] pos tokensAcc errorsAcc stringAcc =
-  let newError = "String begin but does not end. String contains \"" ++ stringAcc ++ "\"" :: String
+  let newError = SinglePosError ("String begin but does not end. String contains \"" ++ stringAcc ++ "\"") pos
    in ([], pos, tokensAcc, errorsAcc ++ [newError])
 consumeString ('"' : xs) pos@(Pos l _) tokensAcc errorsAcc stringAcc =
   let newTokenAcc = TOKEN STRING ("\"" ++ stringAcc ++ "\"") (STR stringAcc) l
@@ -203,7 +211,7 @@ consumeString (x : xs) pos tokensAcc errorsAcc stringAcc =
 -}
 buildNumber :: SourceCode -> Pos -> [Token] -> [LoxSyntaxError] -> String -> (SourceCode, Pos, [Token], [LoxSyntaxError])
 buildNumber [] pos tokensAcc errorsAcc [] =
-  let newError = "Empty digit on pos " ++ show pos
+  let newError = SinglePosError "Empty digit" pos
    in ([], pos, tokensAcc, errorsAcc ++ [newError])
 buildNumber [] pos tokensAcc errorsAcc numberAsString =
   let numberToken = buidNumberTokenFromString numberAsString pos
@@ -245,7 +253,7 @@ buidNumberTokenFromString numberAsString (Pos l _) =
 -}
 buildWord :: SourceCode -> Pos -> [Token] -> [LoxSyntaxError] -> String -> (SourceCode, Pos, [Token], [LoxSyntaxError])
 buildWord [] pos tokensAcc errorsAcc [] =
-  let newError = "Empty word on " ++ show pos
+  let newError = SinglePosError "Empty word" pos
    in ([], pos, tokensAcc, errorsAcc ++ [newError])
 buildWord [] pos tokensAcc errorsAcc numberAsString =
   let wordToken = buildWordFromString numberAsString pos
