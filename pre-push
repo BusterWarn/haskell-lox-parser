@@ -1,0 +1,15 @@
+#!/bin/sh
+# Run stack test before pushing
+
+echo "Running 'stack test' to ensure all tests pass..."
+
+# Running stack test
+stack test
+
+# Check the exit status of the last command (stack test)
+if [ $? -ne 0 ]; then
+  echo "Tests failed. Please fix the tests before pushing."
+  exit 1
+fi
+
+echo "Tests passed. Proceeding with push."
