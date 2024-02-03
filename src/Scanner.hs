@@ -3,7 +3,24 @@ module Scanner (scanTokens) where
 import Data.Char (isDigit, isLetter, isSpace)
 import Tokens
 
-type SourceCode = [Char]
+{- |
+  'scanTokens' - Main function that scans a string of code and generates tokens.
+  Throws errors for any encountered scanning issues.
+
+  Input:
+    - '[Char]' - A string representing the code to be scanned.
+
+  Output:
+    - '[Token]' - A list of generated tokens.
+-}
+scanTokens :: [Char] -> [Token]
+scanTokens [] = error "Empty input string to scanner"
+scanTokens sourceCode =
+  let (tokens, errors, pos) = scan sourceCode (Pos 1 1) [] []
+   in case (tokens, errors) of
+        ([], _) -> error $ "No tokens were actually scanned in " ++ show pos ++ " lines!"
+        (_, _ : _) -> error . unlines $ formatErrors errors sourceCode
+        (_, _) -> tokens
 
 {- |
   The 'Pos' data type represents a position in the source code.
@@ -39,24 +56,21 @@ instance Show LoxSyntaxError where
   show (SinglePosError msg pos) = msg ++ " at " ++ show pos
   show (RangePosError msg startPos endPos) = msg ++ " from " ++ show startPos ++ " to " ++ show endPos
 
-{- |
-  'scanTokens' - Main function that scans a string of code and generates tokens.
-  Throws errors for any encountered scanning issues.
+showPosInCode :: SourceCode -> Pos -> [String]
+showPosInCode code (Pos l c) = [show l ++ " " ++ lines code !! (l - 1), "  " ++ replicate (c - 1) ' ' ++ "^"]
 
-  Input:
-    - '[Char]' - A string representing the code to be scanned.
+formatErrors :: [LoxSyntaxError] -> SourceCode -> [String]
+formatErrors loxSyntaxErrors sourceCode = go loxSyntaxErrors []
+ where
+  go [] errorsAsStrings = errorsAsStrings
+  go (e@(SinglePosError _ p) : ers) errAcc =
+    let errore = show e
+        lineso = showPosInCode sourceCode p
+        newErrAcc = errAcc ++ ['\n' : errore] ++ lineso
+     in go ers newErrAcc
+  go _ _ = undefined
 
-  Output:
-    - '[Token]' - A list of generated tokens.
--}
-scanTokens :: [Char] -> [Token]
-scanTokens [] = error "Empty input string to scanner"
-scanTokens str =
-  let (tokens, errors, pos) = scan str (Pos 1 1) [] []
-   in case (tokens, errors) of
-        ([], _) -> error $ "No tokens were actually scanned in " ++ show pos ++ " lines!"
-        (_, _ : _) -> error $ show (length errors) ++ " errors were encountered: " ++ show errors
-        (_, _) -> tokens
+type SourceCode = [Char]
 
 {- |
   'scan' - Recursive helper function for scanTokens that handles control flow and
@@ -97,14 +111,20 @@ scan current_string@(x : xs) pos@(Pos l _) tokensAcc errorsAcc
           let newTokensAcc = tokensAcc ++ [TOKEN SLASH "/" NONE l]
            in scan xs (incrCol pos) newTokensAcc errorsAcc
   | x == '"' =
-      let (newXs, newPos, newTokensAcc, newErrorsAcc) = consumeString xs pos tokensAcc errorsAcc []
-       in scan newXs newPos newTokensAcc newErrorsAcc
+      let (newXs, newPos, result) = buildString xs pos
+       in case result of
+            Left newToken -> scan newXs newPos (tokensAcc ++ [newToken]) errorsAcc
+            Right newError -> scan newXs newPos tokensAcc (errorsAcc ++ [newError])
   | isDigit x =
-      let (newXs, newPos, newTokensAcc, newErrorsAcc) = buildNumber current_string pos tokensAcc errorsAcc ""
-       in scan newXs newPos newTokensAcc newErrorsAcc
+      let (newXs, newPos, result) = buildNumber xs pos
+       in case result of
+            Left newToken -> scan newXs newPos (tokensAcc ++ [newToken]) errorsAcc
+            Right newError -> scan newXs newPos tokensAcc (errorsAcc ++ [newError])
   | isLetter x =
-      let (newXs, newPos, newTokensAcc, newErrorsAcc) = buildWord current_string pos tokensAcc errorsAcc ""
-       in scan newXs newPos newTokensAcc newErrorsAcc
+      let (newXs, newPos, result) = buildWord current_string pos
+       in case result of
+            Left newToken -> scan newXs newPos (tokensAcc ++ [newToken]) errorsAcc
+            Right newError -> scan newXs newPos tokensAcc (errorsAcc ++ [newError])
   | x == '\n' = scan xs (incrLine pos) tokensAcc errorsAcc
   | isSpace x = scan xs (incrCol pos) tokensAcc errorsAcc
   | otherwise =
@@ -168,32 +188,32 @@ swallowComment ('\n' : xs) = xs
 swallowComment (_ : xs) = swallowComment xs
 
 {- |
-  'consumeString' - Parses a string literal from the code.
+  'buildString' - Parses a string literal from the code.
 
   Input:
     - 'SourceCode' - Current part of the code string being processed.
     - 'Pos - Current line and col number.
-    - '[Token]' - Accumulated list of tokens.
-    - '[LoxSyntaxError]' - Accumulated list of error messages.
-    - 'String' - Accumulator for the string being constructed.
 
   Output:
-    - '(SourceCode, Pos, [Token], [LoxSyntaxError ])' - Tuple containing the remaining
-      code string, updated line and col number, accumulated tokens and accumalated errors.
+    - '(SourceCode, Pos, Either Token LoxSyntaxError)' - Tuple containing the remaining
+      code string, updated line and col number, and a result of either a scanned token
+      or an error.
 -}
-consumeString :: SourceCode -> Pos -> [Token] -> [LoxSyntaxError] -> String -> (SourceCode, Pos, [Token], [LoxSyntaxError])
-consumeString [] pos tokensAcc errorsAcc stringAcc =
-  let newError = SinglePosError ("String begin but does not end. String contains \"" ++ stringAcc ++ "\"") pos
-   in ([], pos, tokensAcc, errorsAcc ++ [newError])
-consumeString ('"' : xs) pos@(Pos l _) tokensAcc errorsAcc stringAcc =
-  let newTokenAcc = TOKEN STRING ("\"" ++ stringAcc ++ "\"") (STR stringAcc) l
-   in (xs, incrCol pos, tokensAcc ++ [newTokenAcc], errorsAcc)
-consumeString ('\n' : xs) pos tokensAcc errorsAcc stringAcc =
-  let newStringAcc = stringAcc ++ ['\n']
-   in consumeString xs (incrLine pos) tokensAcc errorsAcc newStringAcc
-consumeString (x : xs) pos tokensAcc errorsAcc stringAcc =
-  let newStringAcc = stringAcc ++ [x]
-   in consumeString xs (incrCol pos) tokensAcc errorsAcc newStringAcc
+buildString :: SourceCode -> Pos -> (SourceCode, Pos, Either Token LoxSyntaxError)
+buildString sourceCode originalPos = buildStringHelper sourceCode originalPos ""
+ where
+  buildStringHelper [] pos stringAcc =
+    let newError = SinglePosError ("String begin but does not end. String contains \"" ++ stringAcc ++ "\"") originalPos
+     in ([], pos, Right newError)
+  buildStringHelper ('"' : xs) pos@(Pos l _) stringAcc =
+    let newTokenAcc = TOKEN STRING ("\"" ++ stringAcc ++ "\"") (STR stringAcc) l
+     in (xs, incrCol pos, Left newTokenAcc)
+  buildStringHelper ('\n' : xs) pos stringAcc =
+    let newStringAcc = stringAcc ++ ['\n']
+     in buildStringHelper xs (incrLine pos) newStringAcc
+  buildStringHelper (x : xs) pos stringAcc =
+    let newStringAcc = stringAcc ++ [x]
+     in buildStringHelper xs (incrCol pos) newStringAcc
 
 {- |
   'buildNumber' - Processes numeric literals from the code.
@@ -201,36 +221,36 @@ consumeString (x : xs) pos tokensAcc errorsAcc stringAcc =
   Input:
     - 'SourceCode' - Current part of the code string being processed.
     - 'Pos' - Current line and col number.
-    - '[Token]' - Accumulated list of tokens.
-    - '[LoxSyntaxError]' - Accumulated list of error messages.
-    - 'String' - Accumulator for the numeric literal being constructed.
 
   Output:
-    - '(SourceCode, [Token], [LoxSyntaxError])' - Tuple containing the remaining
-      code string, accumulated tokens and accumulated errors.
+    - '(SourceCode, Pos, Either Token LoxSyntaxError)' - Tuple containing the remaining
+      code string, updated line and col number, and a result of either a scanned token
+      or an error.
 -}
-buildNumber :: SourceCode -> Pos -> [Token] -> [LoxSyntaxError] -> String -> (SourceCode, Pos, [Token], [LoxSyntaxError])
-buildNumber [] pos tokensAcc errorsAcc [] =
-  let newError = SinglePosError "Empty digit" pos
-   in ([], pos, tokensAcc, errorsAcc ++ [newError])
-buildNumber [] pos tokensAcc errorsAcc numberAsString =
-  let numberToken = buidNumberTokenFromString numberAsString pos
-   in ([], pos, tokensAcc ++ [numberToken], errorsAcc)
-buildNumber str@(x : xs) pos tokensAcc errorsAcc numberAsStringAcc
-  | isDigit x =
-      let newNumberAsStringAcc = numberAsStringAcc ++ [x]
-       in buildNumber xs (incrCol pos) tokensAcc errorsAcc newNumberAsStringAcc
-  | x == '.' =
-      if '.' `elem` numberAsStringAcc || null xs || not (isDigit $ head xs)
-        then
-          let numberToken = buidNumberTokenFromString numberAsStringAcc pos
-           in (str, pos, tokensAcc ++ [numberToken], errorsAcc)
-        else
-          let newNumberAsStringAcc = numberAsStringAcc ++ [x]
-           in buildNumber xs (incrCol pos) tokensAcc errorsAcc newNumberAsStringAcc
-  | otherwise =
-      let numberToken = buidNumberTokenFromString numberAsStringAcc pos
-       in (str, pos, tokensAcc ++ [numberToken], errorsAcc)
+buildNumber :: SourceCode -> Pos -> (SourceCode, Pos, Either Token LoxSyntaxError)
+buildNumber sourceCode originalPos = buildNumberHelper sourceCode originalPos []
+ where
+  buildNumberHelper [] pos [] =
+    let newError = SinglePosError "Empty digit" pos
+     in ([], pos, Right newError)
+  buildNumberHelper [] pos numberAsString =
+    let numberToken = buidNumberTokenFromString numberAsString pos
+     in ([], pos, Left numberToken)
+  buildNumberHelper str@(x : xs) pos numberAsStringAcc
+    | isDigit x =
+        let newNumberAsStringAcc = numberAsStringAcc ++ [x]
+         in buildNumberHelper xs (incrCol pos) newNumberAsStringAcc
+    | x == '.' =
+        if '.' `elem` numberAsStringAcc || null xs || not (isDigit $ head xs)
+          then
+            let numberToken = buidNumberTokenFromString numberAsStringAcc pos
+             in (str, pos, Left numberToken)
+          else
+            let newNumberAsStringAcc = numberAsStringAcc ++ [x]
+             in buildNumberHelper xs (incrCol pos) newNumberAsStringAcc
+    | otherwise =
+        let numberToken = buidNumberTokenFromString numberAsStringAcc pos
+         in (str, pos, Left numberToken)
 
 buidNumberTokenFromString :: String -> Pos -> Token
 buidNumberTokenFromString numberAsString (Pos l _) =
@@ -243,26 +263,26 @@ buidNumberTokenFromString numberAsString (Pos l _) =
   Input:
     - 'SourceCode' - Current part of the code string being processed.
     - 'Pos' - Current line and col number.
-    - '[Token]' - Accumulated list of tokens.
-    - '[LoxSyntaxError]' - Accumulated list of error messages.
-    - 'String' - Accumulator for the identifier/keyword being constructed.
 
   Output:
-    - '(SourceCode, [Token], [LoxSyntaxError])' - Tuple containing the remaining
-      code string, accumulated tokens and accumalated errors.
+    - '(SourceCode, Pos, Either Token LoxSyntaxError)' - Tuple containing the remaining
+      code string, updated line and col number, and a result of either a scanned token
+      or an error.
 -}
-buildWord :: SourceCode -> Pos -> [Token] -> [LoxSyntaxError] -> String -> (SourceCode, Pos, [Token], [LoxSyntaxError])
-buildWord [] pos tokensAcc errorsAcc [] =
-  let newError = SinglePosError "Empty word" pos
-   in ([], pos, tokensAcc, errorsAcc ++ [newError])
-buildWord [] pos tokensAcc errorsAcc numberAsString =
-  let wordToken = buildWordFromString numberAsString pos
-   in ([], pos, tokensAcc ++ [wordToken], errorsAcc)
-buildWord str@(x : xs) pos tokensAcc errorsAcc wordAcc
-  | isLoxAlphaNumerical x = buildWord xs (incrCol pos) tokensAcc errorsAcc (wordAcc ++ [x])
-  | otherwise =
-      let wordToken = buildWordFromString wordAcc pos
-       in (str, pos, tokensAcc ++ [wordToken], errorsAcc)
+buildWord :: SourceCode -> Pos -> (SourceCode, Pos, Either Token LoxSyntaxError)
+buildWord sourceCode originalPos = buildWordHelper sourceCode originalPos []
+ where
+  buildWordHelper [] pos [] =
+    let newError = SinglePosError "Empty word" pos
+     in ([], pos, Right newError)
+  buildWordHelper [] pos numberAsString =
+    let wordToken = buildWordFromString numberAsString pos
+     in ([], pos, Left wordToken)
+  buildWordHelper str@(x : xs) pos wordAcc
+    | isLoxAlphaNumerical x = buildWordHelper xs (incrCol pos) (wordAcc ++ [x])
+    | otherwise =
+        let wordToken = buildWordFromString wordAcc pos
+         in (str, pos, Left wordToken)
 
 buildWordFromString :: String -> Pos -> Token
 buildWordFromString "and" (Pos l _) = TOKEN AND "and" NONE l
