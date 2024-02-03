@@ -16,10 +16,10 @@ import Tokens
 scanTokens :: [Char] -> [Token]
 scanTokens [] = error "Empty input string to scanner"
 scanTokens sourceCode =
-  let (tokens, errors, pos) = scan sourceCode (Pos 1 1) [] []
+  let (tokens, errors, _) = scan sourceCode (Pos 1 1) [] []
    in case (tokens, errors) of
-        ([], _) -> error $ "No tokens were actually scanned in " ++ show pos ++ " lines!"
         (_, _ : _) -> error . unlines $ formatErrors errors sourceCode
+        ([], _) -> error "No tokens were actually scanned."
         (_, _) -> tokens
 
 {- |
@@ -39,7 +39,10 @@ scanTokens sourceCode =
   > Pos 3 15
   This represents the 15th column of the 3rd line in the source code.
 -}
-data Pos = Pos {line :: Int, col :: Int} deriving (Show, Eq)
+data Pos = Pos Int Int deriving (Eq)
+
+instance Show Pos where
+  show (Pos l c) = show l ++ ":" ++ show c
 
 incrLine :: Pos -> Pos
 incrLine (Pos l _) = Pos (l + 1) 1
@@ -55,20 +58,6 @@ data LoxSyntaxError
 instance Show LoxSyntaxError where
   show (SinglePosError msg pos) = msg ++ " at " ++ show pos
   show (RangePosError msg startPos endPos) = msg ++ " from " ++ show startPos ++ " to " ++ show endPos
-
-showPosInCode :: SourceCode -> Pos -> [String]
-showPosInCode code (Pos l c) = [show l ++ " " ++ lines code !! (l - 1), "  " ++ replicate (c - 1) ' ' ++ "^"]
-
-formatErrors :: [LoxSyntaxError] -> SourceCode -> [String]
-formatErrors loxSyntaxErrors sourceCode = go loxSyntaxErrors []
- where
-  go [] errorsAsStrings = errorsAsStrings
-  go (e@(SinglePosError _ p) : ers) errAcc =
-    let errore = show e
-        lineso = showPosInCode sourceCode p
-        newErrAcc = errAcc ++ ['\n' : errore] ++ lineso
-     in go ers newErrAcc
-  go _ _ = undefined
 
 type SourceCode = [Char]
 
@@ -203,7 +192,7 @@ buildString :: SourceCode -> Pos -> (SourceCode, Pos, Either Token LoxSyntaxErro
 buildString sourceCode originalPos = buildStringHelper sourceCode originalPos ""
  where
   buildStringHelper [] pos stringAcc =
-    let newError = SinglePosError ("String begin but does not end. String contains \"" ++ stringAcc ++ "\"") originalPos
+    let newError = RangePosError ("String begin but does not end. String contains \"" ++ stringAcc ++ "\"") originalPos pos
      in ([], pos, Right newError)
   buildStringHelper ('"' : xs) pos@(Pos l _) stringAcc =
     let newTokenAcc = TOKEN STRING ("\"" ++ stringAcc ++ "\"") (STR stringAcc) l
@@ -308,3 +297,59 @@ isLoxLetter c = isLetter c || c == '_'
 
 isLoxAlphaNumerical :: Char -> Bool
 isLoxAlphaNumerical c = isLoxLetter c || isDigit c
+
+{- |
+  'formatErrors' processes a list of 'LoxSyntaxError's and formats them for display.
+
+  This function takes a list of syntax errors encountered during the scanning or parsing
+  of Lox source code, and formats each error with context from the source code. It utilizes
+  'showErrorInCode' to generate a user-friendly string representation for each error,
+  including line numbers and visual indicators of error locations.
+
+  Input:
+    - 'loxSyntaxErrors': A list of errors encountered during scanning or parsing.
+    - 'sourceCode': The source code being scanned or parsed, as a string.
+
+  Output:
+    - A list of strings, where each string is a formatted error message with contextual information
+      from the source code. Errors are separated by newlines for clear readability.
+-}
+formatErrors :: [LoxSyntaxError] -> SourceCode -> [String]
+formatErrors loxSyntaxErrors sourceCode = go loxSyntaxErrors []
+ where
+  go [] errorsAsStrings = errorsAsStrings
+  go (e : ers) errAcc =
+    let errorInCode = showErrorInCode sourceCode e
+        newErrAcc = errAcc ++ ['\n' : show e] ++ errorInCode
+     in go ers newErrAcc
+
+{- |
+'ShowErrorInCode' displays an error message in context with the source code.
+
+Input:
+  - 'sourceCode': A string representing the entire source code being analyzed.
+  - 'LoxSyntaxError': An error type which can be either a 'SinglePosError' indicating an error at a single position,
+    or a 'RangePosError' indicating an error spanning a range from a start to an end position.
+
+Output:
+  - A list of strings ('[String]') formatted for display, showing the error in context with its location in the source code.
+-}
+showErrorInCode :: SourceCode -> LoxSyntaxError -> [String]
+showErrorInCode sourceCode (SinglePosError _ (Pos l c)) =
+  [ show l ++ " " ++ lines sourceCode !! (l - 1)
+  , "  " ++ replicate (c - 1) ' ' ++ "^"
+  ]
+showErrorInCode sourceCode (RangePosError _ (Pos l1 c1) (Pos l2 c2))
+  | l1 == l2 =
+      [ show l1 ++ " " ++ lines sourceCode !! (l1 - 1)
+      , "  " ++ replicate (c1 - 1) ' ' ++ replicate (c2 - c1 + 1) '^'
+      ]
+  | otherwise =
+      let startLine = lines sourceCode !! (l1 - 1)
+          endLine = lines sourceCode !! (l2 - 1)
+          startLineIndicator = show l1 ++ " " ++ startLine
+          endLineIndicator = show l2 ++ " " ++ endLine
+          midLines = map (\l -> show l ++ " " ++ (lines sourceCode !! (l - 1))) [l1 + 1 .. l2 - 1]
+          startLineCaret = replicate (length (show l1) + 1) ' ' ++ replicate (c1 - 1) ' ' ++ "^"
+          endLineCaret = replicate (length (show l2) + 1) ' ' ++ replicate (c2 - 1) ' ' ++ "^"
+       in [startLineIndicator, startLineCaret] ++ midLines ++ [endLineIndicator, endLineCaret]
