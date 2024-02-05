@@ -77,7 +77,7 @@ type SourceCode = [Char]
 -}
 scan :: SourceCode -> Pos -> [Token] -> [LoxSyntaxError] -> ([Token], [LoxSyntaxError], Pos)
 scan [] pos tokens errors = (tokens, errors, pos)
-scan current_string@(x : xs) pos@(Pos l _) tokensAcc errorsAcc
+scan currentCode@(x : xs) pos@(Pos l _) tokensAcc errorsAcc
   | Just token <- tryBuildSimpleToken x pos =
       let newTokenAcc = tokensAcc ++ [token]
        in scan xs pos newTokenAcc errorsAcc
@@ -105,12 +105,12 @@ scan current_string@(x : xs) pos@(Pos l _) tokensAcc errorsAcc
             Left newToken -> scan newXs newPos (tokensAcc ++ [newToken]) errorsAcc
             Right newError -> scan newXs newPos tokensAcc (errorsAcc ++ [newError])
   | isDigit x =
-      let (newXs, newPos, result) = buildNumber xs pos
+      let (newXs, newPos, result) = buildNumber currentCode pos
        in case result of
             Left newToken -> scan newXs newPos (tokensAcc ++ [newToken]) errorsAcc
             Right newError -> scan newXs newPos tokensAcc (errorsAcc ++ [newError])
   | isLetter x =
-      let (newXs, newPos, result) = buildWord current_string pos
+      let (newXs, newPos, result) = buildWord currentCode pos
        in case result of
             Left newToken -> scan newXs newPos (tokensAcc ++ [newToken]) errorsAcc
             Right newError -> scan newXs newPos tokensAcc (errorsAcc ++ [newError])
