@@ -23,8 +23,11 @@ tests = do
     it "Throws an error for invalid characters" $ do
       evaluate (Scanner.scanTokens "{@}") `shouldThrow` anyException
     it "Scans operator tokens" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "= ! < > == != <= >="
-      result `shouldBe` [EQUAL, BANG, LESS, GREATER, EQUAL_EQUAL, BANG_EQUAL, LESS_EQUAL, GREATER_EQUAL]
+      let result = map tokenToTokenType $ Scanner.scanTokens "= ! < > == === != <= >="
+      result `shouldBe` [EQUAL, BANG, LESS, GREATER, EQUAL_EQUAL, EQUAL_EQUAL, EQUAL, BANG_EQUAL, LESS_EQUAL, GREATER_EQUAL]
+    it "Can scan = as last token" $ do
+      let result = map tokenToTokenType $ Scanner.scanTokens "==="
+      result `shouldBe` [EQUAL_EQUAL, EQUAL]
     it "Does not scan tokens" $ do
       let result = map tokenToTokenType $ Scanner.scanTokens "/+/ // / comment = a * \n//\n ** ==//"
       result `shouldBe` [SLASH, PLUS, SLASH, STAR, STAR, EQUAL_EQUAL]

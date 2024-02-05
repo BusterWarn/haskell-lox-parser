@@ -82,7 +82,7 @@ scan current_string@(x : xs) pos@(Pos l _) tokensAcc errorsAcc
       let newTokenAcc = tokensAcc ++ [token]
        in scan xs pos newTokenAcc errorsAcc
   | isOperatorToken x =
-      if head xs == '='
+      if not (null xs) && head xs == '='
         then
           let token = buildLongOperatorToken x pos
               newTokenAcc = tokensAcc ++ [token]
