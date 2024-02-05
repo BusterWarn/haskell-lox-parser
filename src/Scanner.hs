@@ -319,7 +319,8 @@ formatErrors loxSyntaxErrors sourceCode = go loxSyntaxErrors []
  where
   go [] errorsAsStrings = errorsAsStrings
   go (e : ers) errAcc =
-    let errorInCode = showErrorInCode sourceCode e
+    let sourceCodeAsLines = lines sourceCode
+        errorInCode = showErrorInCode sourceCodeAsLines e
         newErrAcc = errAcc ++ ['\n' : show e] ++ errorInCode
      in go ers newErrAcc
 
@@ -327,29 +328,30 @@ formatErrors loxSyntaxErrors sourceCode = go loxSyntaxErrors []
 'ShowErrorInCode' displays an error message in context with the source code.
 
 Input:
-  - 'sourceCode': A string representing the entire source code being analyzed.
+  - '[SourceCode]': The source code being scanned or parsed, as list of string where every line is one element in the
+  -                 list. E.g. "var x\n@" => ["var x", "@"]
   - 'LoxSyntaxError': An error type which can be either a 'SinglePosError' indicating an error at a single position,
     or a 'RangePosError' indicating an error spanning a range from a start to an end position.
 
 Output:
   - A list of strings ('[String]') formatted for display, showing the error in context with its location in the source code.
 -}
-showErrorInCode :: SourceCode -> LoxSyntaxError -> [String]
-showErrorInCode sourceCode (SinglePosError _ (Pos l c)) =
-  [ show l ++ " " ++ lines sourceCode !! (l - 1)
+showErrorInCode :: [SourceCode] -> LoxSyntaxError -> [String]
+showErrorInCode sourceCodeAsLines (SinglePosError _ (Pos l c)) =
+  [ show l ++ " " ++ sourceCodeAsLines !! (l - 1)
   , "  " ++ replicate (c - 1) ' ' ++ "^"
   ]
-showErrorInCode sourceCode (RangePosError _ (Pos l1 c1) (Pos l2 c2))
+showErrorInCode sourceCodeAsLines (RangePosError _ (Pos l1 c1) (Pos l2 c2))
   | l1 == l2 =
-      [ show l1 ++ " " ++ lines sourceCode !! (l1 - 1)
+      [ show l1 ++ " " ++ sourceCodeAsLines !! (l1 - 1)
       , "  " ++ replicate (c1 - 1) ' ' ++ replicate (c2 - c1 + 1) '^'
       ]
   | otherwise =
-      let startLine = lines sourceCode !! (l1 - 1)
-          endLine = lines sourceCode !! (l2 - 1)
+      let startLine = sourceCodeAsLines !! (l1 - 1)
+          endLine = if l2 - 1 < length sourceCodeAsLines then sourceCodeAsLines !! (l2 - 1) else " "
           startLineIndicator = show l1 ++ " " ++ startLine
           endLineIndicator = show l2 ++ " " ++ endLine
-          midLines = map (\l -> show l ++ " " ++ (lines sourceCode !! (l - 1))) [l1 + 1 .. l2 - 1]
+          midLines = map (\l -> show l ++ " " ++ (sourceCodeAsLines !! (l - 1))) [l1 + 1 .. l2 - 1]
           startLineCaret = replicate (length (show l1) + 1) ' ' ++ replicate (c1 - 1) ' ' ++ "^"
           endLineCaret = replicate (length (show l2) + 1) ' ' ++ replicate (c2 - 1) ' ' ++ "^"
        in [startLineIndicator, startLineCaret] ++ midLines ++ [endLineIndicator, endLineCaret]
