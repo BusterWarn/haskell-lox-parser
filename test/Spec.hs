@@ -28,6 +28,9 @@ tests = do
     it "Can scan = as last token" $ do
       let result = map tokenToTokenType $ Scanner.scanTokens "==="
       result `shouldBe` [EQUAL_EQUAL, EQUAL]
+    it "Can scan / as last token" $ do
+      let result = map tokenToTokenType $ Scanner.scanTokens "/"
+      result `shouldBe` [SLASH]
     it "Does not scan tokens" $ do
       let result = map tokenToTokenType $ Scanner.scanTokens "/+/ // / comment = a * \n//\n ** ==//"
       result `shouldBe` [SLASH, PLUS, SLASH, STAR, STAR, EQUAL_EQUAL]

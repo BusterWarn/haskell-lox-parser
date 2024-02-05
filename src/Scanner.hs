@@ -92,7 +92,7 @@ scan currentCode@(x : xs) pos@(Pos l _) tokensAcc errorsAcc
               newTokenAcc = tokensAcc ++ [token]
            in scan xs (incrCol pos) newTokenAcc errorsAcc
   | x == '/' =
-      if head xs == '/'
+      if not (null xs) && head xs == '/'
         then
           let newXs = swallowComment xs
            in scan newXs (incrLine pos) tokensAcc errorsAcc
