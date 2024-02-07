@@ -16,11 +16,11 @@ import Tokens
 scanTokens :: [Char] -> [Token]
 scanTokens [] = error "Empty input string to scanner"
 scanTokens sourceCode =
-  let (tokens, errors, _) = scan sourceCode (Pos 1 1) [] []
+  let (tokens, errors, Pos l _) = scan sourceCode (Pos 1 1) [] []
    in case (tokens, errors) of
         (_, _ : _) -> error . unlines $ formatErrors errors sourceCode
         ([], _) -> error "No tokens were actually scanned."
-        (_, _) -> tokens
+        (_, _) -> tokens ++ [TOKEN EOF "" NONE l]
 
 {- |
   The 'Pos' data type represents a position in the source code.
