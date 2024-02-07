@@ -189,13 +189,13 @@ swallowComment (_ : xs) = swallowComment xs
       or an error.
 -}
 buildString :: SourceCode -> Pos -> (SourceCode, Pos, Either Token LoxSyntaxError)
-buildString sourceCode originalPos = buildStringHelper sourceCode originalPos ""
+buildString sourceCode originalPos@(Pos startingLine _) = buildStringHelper sourceCode originalPos ""
  where
   buildStringHelper [] pos stringAcc =
     let newError = RangePosError ("String begin but does not end. String contains \"" ++ stringAcc ++ "\"") originalPos pos
      in ([], pos, Right newError)
-  buildStringHelper ('"' : xs) pos@(Pos l _) stringAcc =
-    let newTokenAcc = TOKEN STRING ("\"" ++ stringAcc ++ "\"") (STR stringAcc) l
+  buildStringHelper ('"' : xs) pos stringAcc =
+    let newTokenAcc = TOKEN STRING ("\"" ++ stringAcc ++ "\"") (STR stringAcc) startingLine
      in (xs, incrCol pos, Left newTokenAcc)
   buildStringHelper ('\n' : xs) pos stringAcc =
     let newStringAcc = stringAcc ++ ['\n']

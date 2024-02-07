@@ -11,9 +11,12 @@ main = hspec tests
 tokenToTokenType :: Tokens.Token -> Tokens.TokenType
 tokenToTokenType (Tokens.TOKEN token _ _ _) = token
 
+tokenToLineNumber :: Tokens.Token -> Int
+tokenToLineNumber (Tokens.TOKEN _ _ _ line) = line
+
 tests :: Spec
 tests = do
-  describe "Simple Characters Parsing" $ do
+  describe "Scan correct token types" $ do
     it "Scans all simple characters" $ do
       let result = map tokenToTokenType $ Scanner.scanTokens "(){},.-+;*"
       result `shouldBe` [LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, COMMA, DOT, MINUS, PLUS, SEMICOLON, STAR, EOF]
@@ -57,3 +60,16 @@ tests = do
       evaluate (Scanner.scanTokens "") `shouldThrow` anyException
     it "Input with only whitespace should throw error" $ do
       evaluate (Scanner.scanTokens " \n\r   ") `shouldThrow` anyException
+  describe "Parses Correct Lines" $ do
+    it "Gets some basic lines correct" $ do
+      let result = map tokenToLineNumber $ Scanner.scanTokens "(){},.-+;*\n(){},.-+;*\n\n(){},.-+;*\n"
+      result `shouldBe` [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5]
+    it "Gets longer token line numbers correctly" $ do
+      let result = map tokenToLineNumber $ Scanner.scanTokens "==\n!=\n<=\ni_am_a_line\nclass\n2398.1324\n0923."
+      result `shouldBe` [1, 2, 3, 4, 5, 6, 7, 7, 7]
+    it "Gets comment line numbers correctly" $ do
+      let result = map tokenToLineNumber $ Scanner.scanTokens "Hi // Comment\n//\n//MORE COMMENT\nWorld"
+      result `shouldBe` [1, 4, 4]
+    it "Gets string line numbers correctly" $ do
+      let result = map tokenToLineNumber $ Scanner.scanTokens "\"string\"\n\"multi\nline\nstring\"\"more string\""
+      result `shouldBe` [1, 2, 4, 4]
