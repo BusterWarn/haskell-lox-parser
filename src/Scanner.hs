@@ -109,7 +109,7 @@ scan currentCode@(x : xs) pos@(Pos l _) tokensAcc errorsAcc
        in case result of
             Left newToken -> scan newXs newPos (tokensAcc ++ [newToken]) errorsAcc
             Right newError -> scan newXs newPos tokensAcc (errorsAcc ++ [newError])
-  | isLetter x =
+  | isLoxLetter x =
       let (newXs, newPos, result) = buildWord currentCode pos
        in case result of
             Left newToken -> scan newXs newPos (tokensAcc ++ [newToken]) errorsAcc

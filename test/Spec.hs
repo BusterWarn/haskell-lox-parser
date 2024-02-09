@@ -52,8 +52,16 @@ tests = do
       let result = map tokenToTokenType $ Scanner.scanTokens "1 .1 1. 1.1 1.1.\n123456789 12345.6789"
       result `shouldBe` [NUMBER, DOT, NUMBER, NUMBER, DOT, NUMBER, NUMBER, DOT, NUMBER, NUMBER, EOF]
     it "Can scan words and identifiers" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "hi var m0m_ 1I loVe Y0U. for and true"
-      result `shouldBe` [IDENTIFIER, VAR, IDENTIFIER, NUMBER, IDENTIFIER, IDENTIFIER, IDENTIFIER, DOT, FOR, AND, TRUE, EOF]
+      let result = map tokenToTokenType $ Scanner.scanTokens "hi var m0m_ 1I loVe Y0U. for and true _ w1238ukjdsd_anjkdsf_ _123"
+      result `shouldBe` [IDENTIFIER, VAR, IDENTIFIER, NUMBER, IDENTIFIER, IDENTIFIER, IDENTIFIER, DOT, FOR, AND, TRUE, IDENTIFIER, IDENTIFIER, IDENTIFIER, EOF]
+    it "Can scan an identifier correctly" $ do
+      let result = head $ Scanner.scanTokens "\n\n_I_am_your_f4THER"
+      case result of
+        Tokens.TOKEN _ str (Tokens.ID idStr) line -> do
+          str `shouldBe` "_I_am_your_f4THER"
+          idStr `shouldBe` "_I_am_your_f4THER"
+          line `shouldBe` 3
+        _ -> error "Expected an identifier token"
     it "Cannot scan invalid characters in identifiers" $ do
       evaluate (Scanner.scanTokens "hi d@d") `shouldThrow` anyException
     it "Empty input should throw exception" $ do
