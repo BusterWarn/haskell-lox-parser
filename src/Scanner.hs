@@ -76,20 +76,20 @@ type SourceCode = [Char]
       errors encountered, and the final line and col numbers.
 -}
 scan :: SourceCode -> Pos -> [Token] -> [LoxSyntaxError] -> ([Token], [LoxSyntaxError], Pos)
-scan [] pos tokens errors = (tokens, errors, pos)
+scan [] pos tokens errors = (reverse tokens, errors, pos)
 scan currentCode@(x : xs) pos@(Pos l _) tokensAcc errorsAcc
   | Just token <- tryBuildSimpleToken x pos =
-      let newTokenAcc = tokensAcc ++ [token]
+      let newTokenAcc = token : tokensAcc
        in scan xs pos newTokenAcc errorsAcc
   | isOperatorToken x =
       if not (null xs) && head xs == '='
         then
           let token = buildLongOperatorToken x pos
-              newTokenAcc = tokensAcc ++ [token]
+              newTokenAcc = token : tokensAcc
            in scan (tail xs) (incrCol pos) newTokenAcc errorsAcc
         else
           let token = buildShortOperatorToken x pos
-              newTokenAcc = tokensAcc ++ [token]
+              newTokenAcc = token : tokensAcc
            in scan xs (incrCol pos) newTokenAcc errorsAcc
   | x == '/' =
       if not (null xs) && head xs == '/'
@@ -97,27 +97,27 @@ scan currentCode@(x : xs) pos@(Pos l _) tokensAcc errorsAcc
           let newXs = swallowComment xs
            in scan newXs (incrLine pos) tokensAcc errorsAcc
         else
-          let newTokensAcc = tokensAcc ++ [TOKEN SLASH "/" NONE l]
+          let newTokensAcc = TOKEN SLASH "/" NONE l : tokensAcc
            in scan xs (incrCol pos) newTokensAcc errorsAcc
   | x == '"' =
       let (newXs, newPos, result) = buildString xs pos
        in case result of
-            Left newToken -> scan newXs newPos (tokensAcc ++ [newToken]) errorsAcc
-            Right newError -> scan newXs newPos tokensAcc (errorsAcc ++ [newError])
+            Left newToken -> scan newXs newPos (newToken : tokensAcc) errorsAcc
+            Right newError -> scan newXs newPos tokensAcc (newError : errorsAcc)
   | isDigit x =
       let (newXs, newPos, result) = buildNumber currentCode pos
        in case result of
-            Left newToken -> scan newXs newPos (tokensAcc ++ [newToken]) errorsAcc
-            Right newError -> scan newXs newPos tokensAcc (errorsAcc ++ [newError])
+            Left newToken -> scan newXs newPos (newToken : tokensAcc) errorsAcc
+            Right newError -> scan newXs newPos tokensAcc (newError : errorsAcc)
   | isLoxLetter x =
       let (newXs, newPos, result) = buildWord currentCode pos
        in case result of
-            Left newToken -> scan newXs newPos (tokensAcc ++ [newToken]) errorsAcc
-            Right newError -> scan newXs newPos tokensAcc (errorsAcc ++ [newError])
+            Left newToken -> scan newXs newPos (newToken : tokensAcc) errorsAcc
+            Right newError -> scan newXs newPos tokensAcc (newError : errorsAcc)
   | x == '\n' = scan xs (incrLine pos) tokensAcc errorsAcc
   | isSpace x = scan xs (incrCol pos) tokensAcc errorsAcc
   | otherwise =
-      let newErrorsAcc = errorsAcc ++ [SinglePosError ("Unexpected Char: " ++ [x]) pos]
+      let newErrorsAcc = SinglePosError ("Unexpected Char: " ++ [x]) pos : errorsAcc
        in scan xs (incrCol pos) tokensAcc newErrorsAcc
 
 {- |
@@ -192,16 +192,16 @@ buildString :: SourceCode -> Pos -> (SourceCode, Pos, Either Token LoxSyntaxErro
 buildString sourceCode originalPos@(Pos startingLine _) = buildStringHelper sourceCode originalPos ""
  where
   buildStringHelper [] pos stringAcc =
-    let newError = RangePosError ("String begin but does not end. String contains \"" ++ stringAcc ++ "\"") originalPos pos
+    let newError = RangePosError ("String begin but does not end. String contains \"" ++ reverse stringAcc ++ "\"") originalPos pos
      in ([], pos, Right newError)
   buildStringHelper ('"' : xs) pos stringAcc =
-    let newTokenAcc = TOKEN STRING ("\"" ++ stringAcc ++ "\"") (STR stringAcc) startingLine
+    let newTokenAcc = TOKEN STRING ("\"" ++ reverse stringAcc ++ "\"") (STR stringAcc) startingLine
      in (xs, incrCol pos, Left newTokenAcc)
   buildStringHelper ('\n' : xs) pos stringAcc =
-    let newStringAcc = stringAcc ++ ['\n']
+    let newStringAcc = '\n' : stringAcc
      in buildStringHelper xs (incrLine pos) newStringAcc
   buildStringHelper (x : xs) pos stringAcc =
-    let newStringAcc = stringAcc ++ [x]
+    let newStringAcc = x : stringAcc
      in buildStringHelper xs (incrCol pos) newStringAcc
 
 {- |
@@ -223,26 +223,26 @@ buildNumber sourceCode originalPos = buildNumberHelper sourceCode originalPos []
     let newError = SinglePosError "Empty digit" pos
      in ([], pos, Right newError)
   buildNumberHelper [] pos numberAsString =
-    let numberToken = buidNumberTokenFromString numberAsString pos
+    let numberToken = buildNumberTokenFromString (reverse numberAsString) pos
      in ([], pos, Left numberToken)
   buildNumberHelper str@(x : xs) pos numberAsStringAcc
     | isDigit x =
-        let newNumberAsStringAcc = numberAsStringAcc ++ [x]
+        let newNumberAsStringAcc = x : numberAsStringAcc
          in buildNumberHelper xs (incrCol pos) newNumberAsStringAcc
     | x == '.' =
         if '.' `elem` numberAsStringAcc || null xs || not (isDigit $ head xs)
           then
-            let numberToken = buidNumberTokenFromString numberAsStringAcc pos
+            let numberToken = buildNumberTokenFromString (reverse numberAsStringAcc) pos
              in (str, pos, Left numberToken)
           else
-            let newNumberAsStringAcc = numberAsStringAcc ++ [x]
+            let newNumberAsStringAcc = x : numberAsStringAcc
              in buildNumberHelper xs (incrCol pos) newNumberAsStringAcc
     | otherwise =
-        let numberToken = buidNumberTokenFromString numberAsStringAcc pos
+        let numberToken = buildNumberTokenFromString (reverse numberAsStringAcc) pos
          in (str, pos, Left numberToken)
 
-buidNumberTokenFromString :: String -> Pos -> Token
-buidNumberTokenFromString numberAsString (Pos l _) =
+buildNumberTokenFromString :: String -> Pos -> Token
+buildNumberTokenFromString numberAsString (Pos l _) =
   let number = read numberAsString :: Float
    in TOKEN NUMBER numberAsString (NUM number) l
 
@@ -265,12 +265,12 @@ buildWord sourceCode originalPos = buildWordHelper sourceCode originalPos []
     let newError = SinglePosError "Empty word" pos
      in ([], pos, Right newError)
   buildWordHelper [] pos numberAsString =
-    let wordToken = buildWordFromString numberAsString pos
+    let wordToken = buildWordFromString (reverse numberAsString) pos
      in ([], pos, Left wordToken)
   buildWordHelper str@(x : xs) pos wordAcc
-    | isLoxAlphaNumerical x = buildWordHelper xs (incrCol pos) (wordAcc ++ [x])
+    | isLoxAlphaNumerical x = buildWordHelper xs (incrCol pos) (x : wordAcc)
     | otherwise =
-        let wordToken = buildWordFromString wordAcc pos
+        let wordToken = buildWordFromString (reverse wordAcc) pos
          in (str, pos, Left wordToken)
 
 buildWordFromString :: String -> Pos -> Token
