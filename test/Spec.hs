@@ -48,6 +48,20 @@ tests = do
     it "Can scan simple float" $ do
       let result = map tokenToTokenType $ Scanner.scanTokens "1.0"
       result `shouldBe` [NUMBER, EOF]
+    it "Can scan an int correctly" $ do
+      let result = head $ Scanner.scanTokens "999"
+      case result of
+        Tokens.TOKEN _ str (Tokens.NUM value) _ -> do
+          str `shouldBe` "999"
+          value `shouldBe` 999.0
+        _ -> error "Expected an identifier token"
+    it "Can scan a float correctly" $ do
+      let result = head $ Scanner.scanTokens "999.999"
+      case result of
+        Tokens.TOKEN _ str (Tokens.NUM value) _ -> do
+          str `shouldBe` "999.999"
+          value `shouldBe` 999.999
+        _ -> error "Expected an identifier token"
     it "Can scan numbers" $ do
       let result = map tokenToTokenType $ Scanner.scanTokens "1 .1 1. 1.1 1.1.\n123456789 12345.6789"
       result `shouldBe` [NUMBER, DOT, NUMBER, NUMBER, DOT, NUMBER, NUMBER, DOT, NUMBER, NUMBER, EOF]
