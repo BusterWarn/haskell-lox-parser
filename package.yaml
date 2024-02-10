@@ -59,3 +59,11 @@ tests:
     - haskell-lex-parser
     - hspec
     - containers
+
+benchmarks:
+  my-benchmark:
+    main: BenchMain.hs
+    source-dirs: benchmark
+    dependencies:
+      - haskell-lex-parser
+      - criterion

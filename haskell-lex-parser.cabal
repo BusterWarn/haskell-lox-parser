@@ -61,3 +61,17 @@ test-suite haskell-lex-parser-test
     , haskell-lex-parser
     , hspec
   default-language: Haskell2010
+
+benchmark my-benchmark
+  type: exitcode-stdio-1.0
+  main-is: BenchMain.hs
+  other-modules:
+      Paths_haskell_lex_parser
+  hs-source-dirs:
+      benchmark
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      base ==4.17.2.0
+    , criterion
+    , haskell-lex-parser
+  default-language: Haskell2010
