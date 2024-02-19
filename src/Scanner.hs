@@ -337,6 +337,7 @@ Output:
   - A list of strings ('[String]') formatted for display, showing the error in context with its location in the source code.
 -}
 showErrorInCode :: [SourceCode] -> LoxSyntaxError -> [String]
+showErrorInCode [] err = [show err]
 showErrorInCode sourceCodeAsLines (SinglePosError _ (Pos l c)) =
   [ show l ++ " " ++ sourceCodeAsLines !! (l - 1)
   , "  " ++ replicate (c - 1) ' ' ++ "^"
