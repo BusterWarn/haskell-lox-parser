@@ -147,3 +147,13 @@ tests = do
     it "Parses mixed addition and multiplication advanced 2" $ do
       let result = show . Parser.parse $ Scanner.scanTokens "1 + 2 * (3 + 4) * (5 * 6 + 7)"
       result `shouldBe` "(1.0 + ((2.0 * (3.0 + 4.0)) * ((5.0 * 6.0) + 7.0)))"
+
+    it "Parses simple comparisions" $ do
+      let result = show . Parser.parse $ Scanner.scanTokens "1 < 2"
+      result `shouldBe` "(1.0 < 2.0)"
+      let result = show . Parser.parse $ Scanner.scanTokens "1 <= 2"
+      result `shouldBe` "(1.0 <= 2.0)"
+      let result = show . Parser.parse $ Scanner.scanTokens "1 > 2"
+      result `shouldBe` "(1.0 > 2.0)"
+      let result = show . Parser.parse $ Scanner.scanTokens "1 >= 2"
+      result `shouldBe` "(1.0 >= 2.0)"
