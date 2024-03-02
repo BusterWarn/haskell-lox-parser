@@ -15,7 +15,9 @@ extra-source-files:
 
 library
   exposed-modules:
+      AbstractSyntaxTree
       Main
+      Parser
       Scanner
       Tokens
   other-modules:
@@ -34,6 +36,8 @@ library
 executable haskell-lex-parser-exe
   main-is: Main.hs
   other-modules:
+      AbstractSyntaxTree
+      Parser
       Scanner
       Tokens
       Paths_haskell_lex_parser

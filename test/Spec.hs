@@ -1,3 +1,4 @@
+import qualified Parser
 import qualified Scanner
 import qualified Tokens
 
@@ -89,7 +90,8 @@ tests = do
       evaluate (Scanner.scanTokens "") `shouldThrow` anyException
     it "Input with only whitespace should throw error" $ do
       evaluate (Scanner.scanTokens " \n\r   ") `shouldThrow` anyException
-  describe "Parses Correct Lines" $ do
+
+  describe "Scans Correct Lines" $ do
     it "Gets some basic lines correct" $ do
       let result = map tokenToLineNumber $ Scanner.scanTokens "(){},.-+;*\n(){},.-+;*\n\n(){},.-+;*\n"
       result `shouldBe` [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5]
@@ -102,3 +104,29 @@ tests = do
     it "Gets string line numbers correctly" $ do
       let result = map tokenToLineNumber $ Scanner.scanTokens "\"string\"\n\"multi\nline\nstring\"\"more string\""
       result `shouldBe` [1, 2, 4, 4]
+
+  describe "Parses expressions into AST" $ do
+    it "Parses basic additative" $ do
+      let result = show . Parser.parse $ Scanner.scanTokens "2 + 3 + 5"
+      result `shouldBe` "((2.0 + 3.0) + 5.0)"
+    it "Parses longer additative" $ do
+      let result = show . Parser.parse $ Scanner.scanTokens "1 + 2 + 3 + 4 + 5 + 6"
+      result `shouldBe` "(((((1.0 + 2.0) + 3.0) + 4.0) + 5.0) + 6.0)"
+    it "Parses basic multiplicative" $ do
+      let result = show . Parser.parse $ Scanner.scanTokens "2 * 3 * 5"
+      result `shouldBe` "((2.0 * 3.0) * 5.0)"
+    it "Parses longer multiplicative" $ do
+      let result = show . Parser.parse $ Scanner.scanTokens "1 * 2 * 3 * 4 * 5 * 6"
+      result `shouldBe` "(((((1.0 * 2.0) * 3.0) * 4.0) * 5.0) * 6.0)"
+    it "Parses mixed addition and multiplication basic 1" $ do
+      let result = show . Parser.parse $ Scanner.scanTokens "1 + 2 * 3"
+      result `shouldBe` "(1.0 + (2.0 * 3.0))"
+    it "Parses mixed addition and multiplication basic 2" $ do
+      let result = show . Parser.parse $ Scanner.scanTokens "1 * 2 + 3"
+      result `shouldBe` "((1.0 * 2.0) + 3.0)"
+    it "Parses mixed addition and multiplication advanced 1" $ do
+      let result = show . Parser.parse $ Scanner.scanTokens "1 + 2 * 3 + 4"
+      result `shouldBe` "((1.0 + (2.0 * 3.0)) + 4.0)"
+    it "Parses mixed addition and multiplication advanced 2" $ do
+      let result = show . Parser.parse $ Scanner.scanTokens "1 + 2 * 3 + 4 * 5 * 6 + 7"
+      result `shouldBe` "(((1.0 + (2.0 * 3.0)) + ((4.0 * 5.0) * 6.0)) + 7.0)"
