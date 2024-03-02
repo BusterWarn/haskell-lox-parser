@@ -106,6 +106,12 @@ tests = do
       result `shouldBe` [1, 2, 4, 4]
 
   describe "Parses expressions into AST" $ do
+    it "Throws an error if empty input" $ do
+      evaluate (Parser.parse []) `shouldThrow` anyException
+    it "Throws an error if input list does not end with EOF" $ do
+      let invalidInput = init $ Scanner.scanTokens "1 + 2"
+      evaluate (Parser.parse invalidInput) `shouldThrow` anyException
+
     it "Parses simple unary !" $ do
       let result = show . Parser.parse $ Scanner.scanTokens "!false"
       result `shouldBe` "(!FALSE_LIT)"
