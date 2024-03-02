@@ -106,6 +106,17 @@ tests = do
       result `shouldBe` [1, 2, 4, 4]
 
   describe "Parses expressions into AST" $ do
+    it "Parses simple unary !" $ do
+      let result = show . Parser.parse $ Scanner.scanTokens "!false"
+      result `shouldBe` "(!FALSE_LIT)"
+      let result = show . Parser.parse $ Scanner.scanTokens "!!true"
+      result `shouldBe` "(!(!TRUE_LIT))"
+    it "Parses simple unary -" $ do
+      let result = show . Parser.parse $ Scanner.scanTokens "-1"
+      result `shouldBe` "(-1.0)"
+      let result = show . Parser.parse $ Scanner.scanTokens "--2"
+      result `shouldBe` "(-(-2.0))"
+
     it "Parses basic additative" $ do
       let result = show . Parser.parse $ Scanner.scanTokens "2 + 3 + 5"
       result `shouldBe` "((2.0 + 3.0) + 5.0)"
