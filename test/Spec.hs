@@ -191,6 +191,8 @@ tests = do
       "1; var is_true = true; false;" `shouldParseAs` "1.0; V DEC -> is_true = TRUE_LIT; FALSE_LIT;"
     it "Parses empty variable declaration" $ do
       "var x = 1 + 2 * 3;" `shouldParseAs` "V DEC -> x = (1.0 + (2.0 * 3.0));"
+    it "Parses variable string" $ do
+      "var greet = \"Hello World!\";" `shouldParseAs` "V DEC -> greet = \" Hello World ! \";"
 
     it "Parses simple assignment" $ do
       "gimme = x;" `shouldParseAs` "gimme = x;"

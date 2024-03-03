@@ -20,7 +20,7 @@ instance Show Token where
     | literal == NONE = stringFrom
     | otherwise =
         case literal of
-          (STR string) -> "\"" ++ string ++ "\""
+          (STR string) -> "\"" ++ reverse string ++ "\""
           (NUM num) -> show num
           (ID str) -> str
           _ -> show literal
