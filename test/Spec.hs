@@ -179,3 +179,15 @@ tests = do
       evaluate (Parser.parse $ Scanner.scanTokens "1 + (1 * 1));") `shouldThrow` anyException
     it "Throws an error on expression in the middle" $ do
       evaluate (Parser.parse $ Scanner.scanTokens "1 + 1; (4 + 4; (5 + 9);") `shouldThrow` anyException
+
+    it "Parses empty variable declaration" $ do
+      "var x;" `shouldParseAs` "V DEC -> x;"
+    it "Parses empty variable declaration in the middle of statements" $ do
+      "1; var x; false;" `shouldParseAs` "1.0; V DEC -> x; FALSE_LIT;"
+    it "Parses simple variable declaration" $ do
+      "var x = 1;" `shouldParseAs` "V DEC -> x = 1.0;"
+      "var x = false;" `shouldParseAs` "V DEC -> x = FALSE_LIT;"
+    it "Parses empty variable declaration in the middle of statements" $ do
+      "1; var is_true = true; false;" `shouldParseAs` "1.0; V DEC -> is_true = TRUE_LIT; FALSE_LIT;"
+    it "Parses empty variable declaration" $ do
+      "var x = 1 + 2 * 3;" `shouldParseAs` "V DEC -> x = (1.0 + (2.0 * 3.0));"

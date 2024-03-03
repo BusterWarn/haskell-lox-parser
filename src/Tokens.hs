@@ -20,6 +20,7 @@ instance Show Token where
         case literal of
           (STR string) -> "\"" ++ string ++ "\""
           (NUM num) -> show num
+          (ID str) -> str
           _ -> show literal
 
 isEquality :: Token -> Bool
@@ -84,4 +85,22 @@ isPrint :: Token -> Bool
 isPrint (TOKEN token _ _ _) =
   case token of
     PRINT -> True
+    _ -> False
+
+isVar :: Token -> Bool
+isVar (TOKEN token _ _ _) =
+  case token of
+    VAR -> True
+    _ -> False
+
+isIdentifier :: Token -> Bool
+isIdentifier (TOKEN token _ _ _) =
+  case token of
+    IDENTIFIER -> True
+    _ -> False
+
+isEqual :: Token -> Bool
+isEqual (TOKEN token _ _ _) =
+  case token of
+    EQUAL -> True
     _ -> False

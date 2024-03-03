@@ -1,6 +1,7 @@
 module Parser (parse) where
 
 import AbstractSyntaxTree
+import Debug.Trace (trace)
 import Scanner
 import Tokens
 
@@ -31,7 +32,7 @@ parseHelper [] statements = error $ "Parsing error! Ran out of tokens, but manag
 parseHelper tokens@(t : ts) statementsAcc
   | null ts && isEOF t = Statements $ reverse statementsAcc
   | otherwise =
-      let (s, rest) = statement tokens
+      let (s, rest) = declaration tokens
           newStatementsAcc = s : statementsAcc
        in case s of
             (ErrorExpr _) ->
@@ -39,7 +40,23 @@ parseHelper tokens@(t : ts) statementsAcc
                in parseHelper newRest newStatementsAcc
             _ -> parseHelper rest newStatementsAcc
 
-statement :: [Token] -> (Expr, [Token])
+declaration :: [Token] -> (Expr, [Token])
+declaration [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+declaration tokens@(t : ts)
+  | isVar t = varDeclaration ts
+  | otherwise = statement tokens
+
+varDeclaration :: [Token] -> (Expr, [Token])
+varDeclaration [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+varDeclaration (idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN EQUAL _ _ _) : exprTokens) =
+  let (expr, restAfterExppresion) = expression exprTokens
+      (restAfterSemicolon, maybeError) = consume restAfterExppresion SEMICOLON "Expect ';' after expression."
+   in case maybeError of
+        Just err -> (ErrorExpr err, restAfterSemicolon)
+        Nothing -> (DeclExpr idToken expr, restAfterSemicolon)
+varDeclaration (idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN SEMICOLON _ _ _) : rest) = (DeclExpr idToken EmptyExpr, rest)
+varDeclaration tokens@(t : _) = (ErrorExpr $ LoxParseError ("Expect '=' or ';' after identifier, got: " ++ show t) t, tokens)
+
 statement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 statement tokens@(t : _)
   | isPrint t = printStatement tokens

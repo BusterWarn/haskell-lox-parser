@@ -9,6 +9,8 @@ data Expr
   | GroupingExpr Expr
   | ErrorExpr LoxParseError
   | PrintExpr Expr
+  | DeclExpr Token Expr
+  | EmptyExpr
 
 instance Show Expr where
   show (LiteralExpr token) = show token
@@ -17,6 +19,9 @@ instance Show Expr where
   show (GroupingExpr expr) = "(" ++ show expr ++ ")"
   show (ErrorExpr err) = show err
   show (PrintExpr expr) = "print " ++ show expr
+  show (DeclExpr token EmptyExpr) = "V DEC -> " ++ show token
+  show (DeclExpr token expr) = "V DEC -> " ++ show token ++ " = " ++ show expr
+  show EmptyExpr = ""
 
 newtype Statements = Statements [Expr]
 
