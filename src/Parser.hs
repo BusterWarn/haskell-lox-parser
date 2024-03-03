@@ -41,18 +41,20 @@ parseHelper tokens@(t : ts) statementsAcc
 
 statement :: [Token] -> (Expr, [Token])
 statement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
-statement tokens@(t : ts)
-  | isPrint t = printStatement ts
+statement tokens@(t : _)
+  | isPrint t = printStatement tokens
   | otherwise = expressionStatement tokens
 
-printStatement :: [Token] -> (Expr, [Token]) -- TODO: maybe bugged
+printStatement :: [Token] -> (Expr, [Token])
 printStatement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
-printStatement tokens =
-  let (expr, rest) = expression tokens
-      (restAgain, maybeError) = consume rest SEMICOLON "Expect ';' after value."
-   in case maybeError of
-        Just err -> (ErrorExpr err, restAgain)
-        Nothing -> (expr, restAgain)
+printStatement (t@(TOKEN tokenType _ _ _) : ts)
+  | tokenType /= PRINT = error $ "Internal parser error. Expected print, but got: " ++ show t
+  | otherwise =
+      let (expr, rest) = expression ts
+          (restAgain, maybeError) = consume rest SEMICOLON "Expect ';' after value."
+       in case maybeError of
+            Just err -> (ErrorExpr err, restAgain)
+            Nothing -> (PrintExpr expr, restAgain)
 
 expressionStatement :: [Token] -> (Expr, [Token])
 expressionStatement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
@@ -162,7 +164,7 @@ consume (actual@(TOKEN actualTokenType _ _ _) : ts) expectedTokenType errorMessa
 
 synchronize :: [Token] -> [Token]
 synchronize [] = []
-synchronize ((TOKEN tokenType _ _ _) : ts)
+synchronize tokens@((TOKEN tokenType _ _ _) : ts)
   | tokenType == SEMICOLON = ts
-  | tokenType == EOF = ts
+  | tokenType == EOF = tokens
   | otherwise = synchronize ts

@@ -161,6 +161,11 @@ tests = do
       "1 > 2;" `shouldParseAs` "(1.0 > 2.0);"
       "1 >= 2;" `shouldParseAs` "(1.0 >= 2.0);"
 
+    it "Parses simple print" $ do
+      "print 1;" `shouldParseAs` "print 1.0;"
+      "print (1);" `shouldParseAs` "print (1.0);"
+      "print 1 + 2;" `shouldParseAs` "print (1.0 + 2.0);"
+
     it "Parses multiple simple expressions" $ do
       "1 + 2; (3 + 4); !true;" `shouldParseAs` "(1.0 + 2.0);  ((3.0 + 4.0));  (! TRUE_LIT);"
 

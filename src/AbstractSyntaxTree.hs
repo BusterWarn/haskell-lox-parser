@@ -8,6 +8,7 @@ data Expr
   | BinaryExpr Expr Token Expr
   | GroupingExpr Expr
   | ErrorExpr LoxParseError
+  | PrintExpr Expr
 
 instance Show Expr where
   show (LiteralExpr token) = show token
@@ -15,6 +16,7 @@ instance Show Expr where
   show (BinaryExpr left operator right) = "(" ++ show left ++ " " ++ show operator ++ " " ++ show right ++ ")"
   show (GroupingExpr expr) = "(" ++ show expr ++ ")"
   show (ErrorExpr err) = show err
+  show (PrintExpr expr) = "print " ++ show expr
 
 newtype Statements = Statements [Expr]
 
