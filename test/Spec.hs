@@ -109,7 +109,7 @@ tests = do
     it "Throws an error if empty input" $ do
       evaluate (Parser.parse []) `shouldThrow` anyException
     it "Throws an error if input list does not end with EOF" $ do
-      let invalidInput = init $ Scanner.scanTokens "1 + 2"
+      let invalidInput = init $ Scanner.scanTokens "1 + 2" -- Remove EOF with init
       evaluate (Parser.parse invalidInput) `shouldThrow` anyException
 
     it "Parses simple unary !" $ do
@@ -153,6 +153,11 @@ tests = do
     it "Parses mixed addition and multiplication advanced 2" $ do
       let result = show . Parser.parse $ Scanner.scanTokens "1 + 2 * (3 + 4) * (5 * 6 + 7)"
       result `shouldBe` "(1.0 + ((2.0 * (3.0 + 4.0)) * ((5.0 * 6.0) + 7.0)))"
+
+    it "Throws an error when reading a single '(' 1" $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "(2") `shouldThrow` anyException
+    it "Throws an error when reading a single '(' 2" $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "1 + 2 * (5 + 9") `shouldThrow` anyException
 
     it "Parses simple comparisions" $ do
       let result = show . Parser.parse $ Scanner.scanTokens "1 < 2"
