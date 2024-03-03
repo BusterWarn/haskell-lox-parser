@@ -7,9 +7,10 @@ data Expr
   | UnaryExpr Token Expr
   | BinaryExpr Expr Token Expr
   | GroupingExpr Expr
-  | ErrorExpr LoxParseError
   | PrintExpr Expr
-  | DeclExpr Token Expr
+  | DeclExpr Expr Token
+  | AssignExpr Token Expr
+  | ErrorExpr LoxParseError
   | EmptyExpr
 
 instance Show Expr where
@@ -17,10 +18,11 @@ instance Show Expr where
   show (UnaryExpr operator right) = "(" ++ show operator ++ " " ++ show right ++ ")"
   show (BinaryExpr left operator right) = "(" ++ show left ++ " " ++ show operator ++ " " ++ show right ++ ")"
   show (GroupingExpr expr) = "(" ++ show expr ++ ")"
-  show (ErrorExpr err) = show err
   show (PrintExpr expr) = "print " ++ show expr
-  show (DeclExpr token EmptyExpr) = "V DEC -> " ++ show token
-  show (DeclExpr token expr) = "V DEC -> " ++ show token ++ " = " ++ show expr
+  show (DeclExpr EmptyExpr token) = "V DEC -> " ++ show token
+  show (DeclExpr expr token) = "V DEC -> " ++ show token ++ " = " ++ show expr
+  show (AssignExpr token expr) = show token ++ " = " ++ show expr
+  show (ErrorExpr err) = show err
   show EmptyExpr = ""
 
 newtype Statements = Statements [Expr]

@@ -40,10 +40,6 @@ parseHelper tokens@(t : ts) statementsAcc
                in parseHelper newRest newStatementsAcc
             _ -> parseHelper rest newStatementsAcc
 
-assignment :: [Token] -> (Expr, [Token])
-assignment [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
-assignment tokens@(t : ts) = undefined
-
 declaration :: [Token] -> (Expr, [Token])
 declaration [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 declaration tokens@(t : ts)
@@ -54,11 +50,11 @@ varDeclaration :: [Token] -> (Expr, [Token])
 varDeclaration [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 varDeclaration (idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN EQUAL _ _ _) : exprTokens) =
   let (expr, restAfterExppresion) = expression exprTokens
-      (restAfterSemicolon, maybeError) = consume restAfterExppresion SEMICOLON "Expect ';' after expression."
+      (restAfterSemicolon, maybeError) = consume restAfterExppresion SEMICOLON "Expect ';' after expression." -- TODO: fix bug here
    in case maybeError of
         Just err -> (ErrorExpr err, restAfterSemicolon)
-        Nothing -> (DeclExpr idToken expr, restAfterSemicolon)
-varDeclaration (idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN SEMICOLON _ _ _) : rest) = (DeclExpr idToken EmptyExpr, rest)
+        Nothing -> (DeclExpr expr idToken, restAfterSemicolon)
+varDeclaration (idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN SEMICOLON _ _ _) : rest) = (DeclExpr EmptyExpr idToken, rest)
 varDeclaration tokens@(t : _) = (ErrorExpr $ LoxParseError ("Expect '=' or ';' after identifier, got: " ++ show t) t, tokens)
 
 statement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
@@ -88,7 +84,26 @@ expressionStatement tokens =
 
 expression :: [Token] -> (Expr, [Token])
 expression [] = error "Empty list of Tokens!"
-expression tokens = loxOr tokens
+expression tokens = assignment tokens
+
+assignment :: [Token] -> (Expr, [Token])
+assignment [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+assignment tokens@(possibleIdentifierToken : _) =
+  let (left, restFromLeft) = loxOr tokens
+   in case restFromLeft of
+        ((TOKEN EQUAL _ _ _) : rest) ->
+          if isTokenLValue possibleIdentifierToken
+            then
+              let (right, restFromRight) = assignment rest
+               in (AssignExpr possibleIdentifierToken right, restFromRight)
+            else
+              let err = ErrorExpr $ LoxParseError ("Invalid assignment to rvalue: '" ++ show possibleIdentifierToken ++ "'") possibleIdentifierToken
+                  newRest = synchronize rest
+               in (err, newRest)
+        _ -> (left, restFromLeft)
+ where
+  isTokenLValue (TOKEN IDENTIFIER _ _ _) = True
+  isTokenLValue _ = False
 
 loxOr :: [Token] -> (Expr, [Token])
 loxOr [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])

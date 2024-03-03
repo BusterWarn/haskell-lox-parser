@@ -192,6 +192,16 @@ tests = do
     it "Parses empty variable declaration" $ do
       "var x = 1 + 2 * 3;" `shouldParseAs` "V DEC -> x = (1.0 + (2.0 * 3.0));"
 
+    it "Parses simple assignment" $ do
+      "gimme = x;" `shouldParseAs` "gimme = x;"
+    it "Parses slighly more advanced assignment" $ do
+      "gimme = (1 + 2 * 3);" `shouldParseAs` "gimme = ((1.0 + (2.0 * 3.0)));"
+    it "Parses assignments between statements" $ do
+      "a = b; var x; x = 0; var gimme = x; gimme = gimme; 1 + 1;" `shouldParseAs` "a = b; V DEC -> x; x = 0.0; V DEC -> gimme = x; gimme = gimme; (1.0 + 1.0);"
+    it "Throws when trying to assign to rvalue" $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "1 = true;") `shouldThrow` anyException
+      evaluate (Parser.parse $ Scanner.scanTokens "true = false;") `shouldThrow` anyException
+
     it "Parses simple and" $ do
       "true and false;" `shouldParseAs` "(TRUE_LIT && FALSE_LIT);"
     it "Parses simple and" $ do
