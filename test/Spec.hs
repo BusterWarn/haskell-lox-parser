@@ -208,3 +208,16 @@ tests = do
       "1 or 2;" `shouldParseAs` "(1.0 || 2.0);"
     it "Parses complex and + or" $ do
       "a or b and c or d and e;" `shouldParseAs` "((a || (b && c)) || (d && e));"
+
+    it "Parses simple block" $ do
+      "{ 1; 2; }" `shouldParseAs` "{ 1.0; 2.0; }"
+      "{ a = b; }" `shouldParseAs` "{ a = b; }"
+    it "Parses simple nested blocks" $ do
+      "{{ 1; 2; }}" `shouldParseAs` "{{ 1.0; 2.0; }}"
+      "{{{ a = b; }}}" `shouldParseAs` "{{{ a = b; }}}"
+    it "Parses blocks between statements" $ do
+      "1; { 1; 2; } 2+2;" `shouldParseAs` "1.0; {1.0;2.0;} (2.0 + 2.0);"
+    it "Parses slightly advanced nesting" $ do
+      "0;{1;{2;{3;}4;}5;}6;" `shouldParseAs` "0.0; {1.0;{2.0;{3.0;} 4.0;} 5.0;} 6.0;"
+    it "Parses quite the advanced nesting" $ do
+      "{ q = 0; {q = q;} 1;{x = 5;} 2; {2;} }" `shouldParseAs` "{q = 0.0;{q = q;} 1.0;{x = 5.0;} 2.0;{2.0;} }"

@@ -58,20 +58,31 @@ varDeclaration (idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN SEMICOLON _ _ _) : res
 varDeclaration tokens@(t : _) = (ErrorExpr $ LoxParseError ("Expect '=' or ';' after identifier, got: " ++ show t) t, tokens)
 
 statement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
-statement tokens@(t : _)
-  | isPrint t = printStatement tokens
+statement tokens@((TOKEN tokenType _ _ _) : ts)
+  | tokenType == PRINT = printStatement ts
+  | tokenType == LEFT_BRACE = block ts
   | otherwise = expressionStatement tokens
+
+block :: [Token] -> (Expr, [Token])
+block [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+block tokens = blockHelper tokens []
+ where
+  blockHelper [] _ = error "Internal parser error. Nothing to parse, but parser expects statement in block."
+  blockHelper rest@(t@(TOKEN tokenType _ _ _) : ts) tokensAcc
+    | tokenType == EOF = (ErrorExpr $ LoxParseError "Expect '}' after block" t, rest)
+    | tokenType == RIGHT_BRACE = (Block $ reverse tokensAcc, ts)
+    | otherwise =
+        let (newStatement, statementRest) = statement rest
+         in blockHelper statementRest (newStatement : tokensAcc)
 
 printStatement :: [Token] -> (Expr, [Token])
 printStatement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
-printStatement (t@(TOKEN tokenType _ _ _) : ts)
-  | tokenType /= PRINT = error $ "Internal parser error. Expected print, but got: " ++ show t
-  | otherwise =
-      let (expr, rest) = expression ts
-          (restAgain, maybeError) = consume rest SEMICOLON "Expect ';' after value."
-       in case maybeError of
-            Just err -> (ErrorExpr err, restAgain)
-            Nothing -> (PrintExpr expr, restAgain)
+printStatement tokens =
+  let (expr, rest) = expression tokens
+      (restAgain, maybeError) = consume rest SEMICOLON "Expect ';' after value."
+   in case maybeError of
+        Just err -> (ErrorExpr err, restAgain)
+        Nothing -> (PrintExpr expr, restAgain)
 
 expressionStatement :: [Token] -> (Expr, [Token])
 expressionStatement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])

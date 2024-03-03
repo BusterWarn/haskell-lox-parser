@@ -83,12 +83,6 @@ isBinary (TOKEN token _ _ _) =
     SLASH -> True
     _ -> False
 
-isPrint :: Token -> Bool
-isPrint (TOKEN token _ _ _) =
-  case token of
-    PRINT -> True
-    _ -> False
-
 isVar :: Token -> Bool
 isVar (TOKEN token _ _ _) =
   case token of
