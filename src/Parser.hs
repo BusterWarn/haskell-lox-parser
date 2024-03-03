@@ -1,97 +1,168 @@
 module Parser (parse) where
 
 import AbstractSyntaxTree
-import Debug.Trace (trace)
-import GHC.Base (undefined)
 import Scanner
 import Tokens
 
-parse :: [Token] -> Ast
+parse :: [Token] -> Statements
 parse [] = error "Empty list of Tokens!"
 parse tokens
   | not $ isEOF (last tokens) = error $ "Input Tokens does not end with EOF:\n" ++ show tokens ++ "."
   | length tokens == 1 = error "Only <EOF> token was input."
   | otherwise =
-      let (ast, rest) = expression tokens
-       in if length rest == 1 && isEOF (head rest)
-            then ast
-            else error $ "Could not parse. \nParsed AST:" ++ show ast ++ "\nUnable to parse:" ++ show rest
+      let statements = parseHelper tokens []
+          errors = getAllErrors statements
+       in if null errors
+            then statements
+            else error $ "Encountered errors while parsing:\n" ++ unlines (map show errors)
 
-expression :: [Token] -> (Ast, [Token])
+getAllErrors :: Statements -> [LoxParseError]
+getAllErrors (Statements exprs) = concatMap getErrorsFromExpr exprs
+
+getErrorsFromExpr :: Expr -> [LoxParseError]
+getErrorsFromExpr (ErrorExpr err) = [err]
+getErrorsFromExpr (UnaryExpr _ expr) = getErrorsFromExpr expr
+getErrorsFromExpr (BinaryExpr left _ right) = getErrorsFromExpr left ++ getErrorsFromExpr right
+getErrorsFromExpr (GroupingExpr expr) = getErrorsFromExpr expr
+getErrorsFromExpr _ = []
+
+parseHelper :: [Token] -> [Expr] -> Statements
+parseHelper [] statements = error $ "Parsing error! Ran out of tokens, but managed to parse:\n" ++ show statements
+parseHelper tokens@(t : ts) statementsAcc
+  | null ts && isEOF t = Statements $ reverse statementsAcc
+  | otherwise =
+      let (s, rest) = statement tokens
+          newStatementsAcc = s : statementsAcc
+       in case s of
+            (ErrorExpr _) ->
+              let newRest = synchronize rest
+               in parseHelper newRest newStatementsAcc
+            _ -> parseHelper rest newStatementsAcc
+
+statement :: [Token] -> (Expr, [Token])
+statement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+statement tokens@(t : ts)
+  | isPrint t = printStatement ts
+  | otherwise = expressionStatement tokens
+
+printStatement :: [Token] -> (Expr, [Token]) -- TODO: maybe bugged
+printStatement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+printStatement tokens =
+  let (expr, rest) = expression tokens
+      (restAgain, maybeError) = consume rest SEMICOLON "Expect ';' after value."
+   in case maybeError of
+        Just err -> (ErrorExpr err, restAgain)
+        Nothing -> (expr, restAgain)
+
+expressionStatement :: [Token] -> (Expr, [Token])
+expressionStatement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+expressionStatement tokens =
+  let (expr, rest) = expression tokens
+      (restAgain, maybeError) = consume rest SEMICOLON "Expect ';' after expression."
+   in case maybeError of
+        Just err -> (ErrorExpr err, restAgain)
+        Nothing -> (expr, restAgain)
+
+expression :: [Token] -> (Expr, [Token])
 expression [] = error "Empty list of Tokens!"
 expression tokens = equality tokens
 
-equality :: [Token] -> (Ast, [Token])
+equality :: [Token] -> (Expr, [Token])
+equality [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 equality tokens =
   let (left, restFromLeft) = comparison tokens
-   in matchEqualities left restFromLeft
+   in case left of
+        err@(ErrorExpr _) -> (err, restFromLeft)
+        _ -> matchEqualities left restFromLeft
  where
-  matchEqualities l rest@(t : ts)
+  matchEqualities left rest@(t : ts)
     | isEquality t =
         let (right, restFromRight) = comparison ts
-         in matchEqualities (Node t l right) restFromRight
-    | otherwise = (l, rest)
+         in case right of
+              err@(ErrorExpr _) -> (err, restFromRight)
+              _ -> matchEqualities (BinaryExpr left t right) restFromRight
+    | otherwise = (left, rest)
 
-comparison :: [Token] -> (Ast, [Token])
+comparison :: [Token] -> (Expr, [Token])
+comparison [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 comparison tokens =
   let (left, restFromLeft) = term tokens
-   in matchComparisions left restFromLeft
+   in case left of
+        err@(ErrorExpr _) -> (err, restFromLeft)
+        _ -> matchComparisions left restFromLeft
  where
-  matchComparisions l rest@(t : ts)
+  matchComparisions left rest@(t : ts)
     | isComparision t =
         let (right, restFromRight) = term ts
-         in matchComparisions (Node t l right) restFromRight
-    | otherwise = (l, rest)
+         in case right of
+              err@(ErrorExpr _) -> (err, restFromRight)
+              _ -> matchComparisions (BinaryExpr left t right) restFromRight
+    | otherwise = (left, rest)
 
-term :: [Token] -> (Ast, [Token])
+term :: [Token] -> (Expr, [Token])
+term [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 term tokens =
   let (left, restFromLeft) = factor tokens
-   in matchTerms left restFromLeft
+   in case left of
+        err@(ErrorExpr _) -> (err, restFromLeft)
+        _ -> matchTerms left restFromLeft
  where
-  matchTerms l rest@(t : ts)
+  matchTerms left rest@(t : ts)
     | isBinaryAdditive t =
         let (right, restFromRight) = factor ts
-         in matchTerms (Node t l right) restFromRight
-    | otherwise = (l, rest)
+         in case right of
+              err@(ErrorExpr _) -> (err, restFromRight)
+              _ -> matchTerms (BinaryExpr left t right) restFromRight
+    | otherwise = (left, rest)
 
-factor :: [Token] -> (Ast, [Token])
-factor [] = error "Empty list of Tokens!"
+factor :: [Token] -> (Expr, [Token])
+factor [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 factor tokens =
   let (left, restFromLeft) = unary tokens
-   in matchFactors left restFromLeft
+   in case left of
+        err@(ErrorExpr _) -> (err, restFromLeft)
+        _ -> matchFactors left restFromLeft
  where
-  matchFactors l rest@(t : ts)
+  matchFactors left rest@(t : ts)
     | isBinaryMultiplicative t =
         let (right, restFromRight) = unary ts
-         in matchFactors (Node t l right) restFromRight
-    | otherwise = (l, rest)
+         in case right of
+              err@(ErrorExpr _) -> (err, restFromRight)
+              _ -> matchFactors (BinaryExpr left t right) restFromRight
+    | otherwise = (left, rest)
 
-unary :: [Token] -> (Ast, [Token])
+unary :: [Token] -> (Expr, [Token])
 unary tokens@(t : ts) =
   if isUnary t
     then
       let (right, rest) = unary ts
-       in (Node t EmptyAst right, rest)
-    else
-      let res = primary tokens
-       in res
+       in case right of
+            ErrorExpr _ -> (right, rest)
+            _ -> (UnaryExpr t right, rest)
+    else primary tokens
 
-primary :: [Token] -> (Ast, [Token])
+primary :: [Token] -> (Expr, [Token])
 primary [] = error "Empty list of Tokens!"
 primary (t@(TOKEN tokenType _ _ _) : ts)
-  | isLiteral t = (Node t EmptyAst EmptyAst, ts)
+  | isLiteral t = (LiteralExpr t, ts)
   | tokenType == LEFT_PAREN =
       let (left, rest) = expression ts
-          restAgain = consume rest RIGHT_PAREN "Expect ')' after expression."
-       in (left, restAgain)
-  | otherwise = error $ "Unknown primary: " ++ show t ++ ". Rest: " ++ show ts
+          (restAgain, maybeError) = consume rest RIGHT_PAREN "Expect ')' after expression."
+       in case maybeError of
+            Just err -> (ErrorExpr err, restAgain)
+            Nothing -> (GroupingExpr left, restAgain)
+  | otherwise = (ErrorExpr $ LoxParseError "Unexpected Character" t, ts)
 
-consume :: [Token] -> TokenType -> String -> [Token]
+consume :: [Token] -> TokenType -> String -> ([Token], Maybe LoxParseError)
+consume [] _ errorMessage =
+  ([], Just $ LoxParseError errorMessage (TOKEN EOF "" NONE 0))
 consume (actual@(TOKEN actualTokenType _ _ _) : ts) expectedTokenType errorMessage
-  | actualTokenType == expectedTokenType = ts
-  | otherwise = error $ parseError actual errorMessage
+  | actualTokenType == expectedTokenType = (ts, Nothing)
+  | otherwise = (actual : ts, Just $ LoxParseError errorMessage actual)
 
-parseError :: Token -> String -> String
-parseError token@(TOKEN _ _ _ line) message
-  | isEOF token = "Line: " ++ show line ++ " Reached <EOF>. Parse error: " ++ message
-  | otherwise = "Line: " ++ show line ++ " Parse error: " ++ message
+synchronize :: [Token] -> [Token]
+synchronize [] = []
+synchronize ((TOKEN tokenType _ _ _) : ts)
+  | tokenType == SEMICOLON = ts
+  | tokenType == EOF = ts
+  | otherwise = synchronize ts

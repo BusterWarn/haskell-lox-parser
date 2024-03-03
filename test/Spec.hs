@@ -3,6 +3,7 @@ import qualified Scanner
 import qualified Tokens
 
 import Control.Exception (evaluate)
+import Data.Char (isSpace)
 import Test.Hspec
 import Tokens (TokenType (AND, BANG, BANG_EQUAL, CLASS, COMMA, DOT, ELSE, EOF, EQUAL, EQUAL_EQUAL, FALSE, FOR, FUN, GREATER, GREATER_EQUAL, IDENTIFIER, IF, LEFT_BRACE, LEFT_PAREN, LESS, LESS_EQUAL, MINUS, NIL, NUMBER, OR, PLUS, PRINT, RETURN, RIGHT_BRACE, RIGHT_PAREN, SEMICOLON, SLASH, STAR, STRING, SUPER, THIS, TRUE, VAR, WHILE))
 
@@ -14,6 +15,19 @@ tokenToTokenType (Tokens.TOKEN token _ _ _) = token
 
 tokenToLineNumber :: Tokens.Token -> Int
 tokenToLineNumber (Tokens.TOKEN _ _ _ line) = line
+
+-- Removes all whitespace from a string, including newlines
+removeWhitespace :: String -> String
+removeWhitespace = filter (not . isSpace)
+
+-- Custom infix function for testing
+shouldParseAs :: String -> String -> Expectation
+input `shouldParseAs` expected =
+  let parsedStatements = Parser.parse $ Scanner.scanTokens input
+      actualShowString = show parsedStatements
+      actualNoWhitespace = removeWhitespace actualShowString
+      expectedNoWhitespace = removeWhitespace expected
+   in actualNoWhitespace `shouldBe` expectedNoWhitespace
 
 tests :: Spec
 tests = do
@@ -105,66 +119,58 @@ tests = do
       let result = map tokenToLineNumber $ Scanner.scanTokens "\"string\"\n\"multi\nline\nstring\"\"more string\""
       result `shouldBe` [1, 2, 4, 4]
 
-  describe "Parses expressions into AST" $ do
+  describe "Parses expressions into Statements" $ do
     it "Throws an error if empty input" $ do
       evaluate (Parser.parse []) `shouldThrow` anyException
     it "Throws an error if input list does not end with EOF" $ do
-      let invalidInput = init $ Scanner.scanTokens "1 + 2" -- Remove EOF with init
+      let invalidInput = init $ Scanner.scanTokens "1 + 2;" -- Remove EOF with init
       evaluate (Parser.parse invalidInput) `shouldThrow` anyException
 
     it "Parses simple unary !" $ do
-      let result = show . Parser.parse $ Scanner.scanTokens "!false"
-      result `shouldBe` "(!FALSE_LIT)"
-      let result = show . Parser.parse $ Scanner.scanTokens "!!true"
-      result `shouldBe` "(!(!TRUE_LIT))"
+      "!false;" `shouldParseAs` "(!FALSE_LIT);"
+      "!!true;" `shouldParseAs` "(!(!TRUE_LIT));"
     it "Parses simple unary -" $ do
-      let result = show . Parser.parse $ Scanner.scanTokens "-1"
-      result `shouldBe` "(-1.0)"
-      let result = show . Parser.parse $ Scanner.scanTokens "--2"
-      result `shouldBe` "(-(-2.0))"
+      "-1;" `shouldParseAs` "(-1.0);"
+      "--2;" `shouldParseAs` "(-(-2.0));"
 
     it "Parses basic additative" $ do
-      let result = show . Parser.parse $ Scanner.scanTokens "2 + 3 + 5"
-      result `shouldBe` "((2.0 + 3.0) + 5.0)"
+      "2 + 3 + 5;" `shouldParseAs` "((2.0 + 3.0) + 5.0);"
     it "Parses longer additative" $ do
-      let result = show . Parser.parse $ Scanner.scanTokens "1 + 2 + 3 + 4 + 5 + 6"
-      result `shouldBe` "(((((1.0 + 2.0) + 3.0) + 4.0) + 5.0) + 6.0)"
+      "1 + 2 + 3 + 4 + 5 + 6;" `shouldParseAs` "(((((1.0 + 2.0) + 3.0) + 4.0) + 5.0) + 6.0);"
     it "Parses basic multiplicative" $ do
-      let result = show . Parser.parse $ Scanner.scanTokens "2 * 3 * 5"
-      result `shouldBe` "((2.0 * 3.0) * 5.0)"
+      "2 * 3 * 5;" `shouldParseAs` "((2.0 * 3.0) * 5.0);"
     it "Parses longer multiplicative" $ do
-      let result = show . Parser.parse $ Scanner.scanTokens "1 * 2 * 3 * 4 * 5 * 6"
-      result `shouldBe` "(((((1.0 * 2.0) * 3.0) * 4.0) * 5.0) * 6.0)"
+      "1 * 2 * 3 * 4 * 5 * 6;" `shouldParseAs` "(((((1.0 * 2.0) * 3.0) * 4.0) * 5.0) * 6.0);"
     it "Parses mixed addition and multiplication basic 1" $ do
-      let result = show . Parser.parse $ Scanner.scanTokens "1 + 2 * 3"
-      result `shouldBe` "(1.0 + (2.0 * 3.0))"
+      "1 + 2 * 3;" `shouldParseAs` "(1.0 + (2.0 * 3.0));"
     it "Parses mixed addition and multiplication basic 2" $ do
-      let result = show . Parser.parse $ Scanner.scanTokens "1 * 2 + 3"
-      result `shouldBe` "((1.0 * 2.0) + 3.0)"
+      "1 * 2 + 3;" `shouldParseAs` "((1.0 * 2.0) + 3.0);"
     it "Parses mixed addition and multiplication advanced 1" $ do
-      let result = show . Parser.parse $ Scanner.scanTokens "1 + 2 * 3 + 4"
-      result `shouldBe` "((1.0 + (2.0 * 3.0)) + 4.0)"
+      "1 + 2 * 3 + 4;" `shouldParseAs` "((1.0 + (2.0 * 3.0)) + 4.0);"
     it "Parses mixed addition and multiplication advanced 2" $ do
-      let result = show . Parser.parse $ Scanner.scanTokens "1 + 2 * 3 + 4 * 5 * 6 + 7"
-      result `shouldBe` "(((1.0 + (2.0 * 3.0)) + ((4.0 * 5.0) * 6.0)) + 7.0)"
-    it "Parses mixed addition and multiplication with parenthasis 1" $ do
-      let result = show . Parser.parse $ Scanner.scanTokens "(1 + 2) * 3 + 4"
-      result `shouldBe` "(((1.0 + 2.0) * 3.0) + 4.0)"
-    it "Parses mixed addition and multiplication advanced 2" $ do
-      let result = show . Parser.parse $ Scanner.scanTokens "1 + 2 * (3 + 4) * (5 * 6 + 7)"
-      result `shouldBe` "(1.0 + ((2.0 * (3.0 + 4.0)) * ((5.0 * 6.0) + 7.0)))"
+      "1 + 2 * 3 + 4 * 5 * 6 + 7;" `shouldParseAs` "(((1.0 + (2.0 * 3.0)) + ((4.0 * 5.0) * 6.0)) + 7.0);"
 
-    it "Throws an error when reading a single '(' 1" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "(2") `shouldThrow` anyException
-    it "Throws an error when reading a single '(' 2" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "1 + 2 * (5 + 9") `shouldThrow` anyException
+    it "Parses mixed addition and multiplication with parenthasis 1" $ do
+      "(1 + 2) * 3 + 4;" `shouldParseAs` "((((1.0 + 2.0)) * 3.0) + 4.0);"
+    it "Parses mixed addition and multiplication advanced 2" $ do
+      "1 + 2 * (3 + 4) * (5 * 6 + 7);" `shouldParseAs` "(1.0 + ((2.0 * ((3.0 + 4.0))) * (((5.0 * 6.0) + 7.0))));"
 
     it "Parses simple comparisions" $ do
-      let result = show . Parser.parse $ Scanner.scanTokens "1 < 2"
-      result `shouldBe` "(1.0 < 2.0)"
-      let result = show . Parser.parse $ Scanner.scanTokens "1 <= 2"
-      result `shouldBe` "(1.0 <= 2.0)"
-      let result = show . Parser.parse $ Scanner.scanTokens "1 > 2"
-      result `shouldBe` "(1.0 > 2.0)"
-      let result = show . Parser.parse $ Scanner.scanTokens "1 >= 2"
-      result `shouldBe` "(1.0 >= 2.0)"
+      "1 < 2;" `shouldParseAs` "(1.0 < 2.0);"
+      "1 <= 2;" `shouldParseAs` "(1.0 <= 2.0);"
+      "1 > 2;" `shouldParseAs` "(1.0 > 2.0);"
+      "1 >= 2;" `shouldParseAs` "(1.0 >= 2.0);"
+
+    it "Parses multiple simple expressions" $ do
+      "1 + 2; (3 + 4); !true;" `shouldParseAs` "(1.0 + 2.0);  ((3.0 + 4.0));  (! TRUE_LIT);"
+
+    it "Throws an error when reading a single '(' 1" $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "(2;") `shouldThrow` anyException
+    it "Throws an error when reading a single '(' 2" $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "1 + 2 * (5 + 9;") `shouldThrow` anyException
+    it "Throws an error when reading more '(' than ')'" $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "1 + ((1 * 1);") `shouldThrow` anyException
+    it "Throws an error when reading more ')' than '('" $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "1 + (1 * 1));") `shouldThrow` anyException
+    it "Throws an error on expression in the middle" $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "1 + 1; (4 + 4; (5 + 9);") `shouldThrow` anyException

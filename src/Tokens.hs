@@ -79,3 +79,9 @@ isBinary (TOKEN token _ _ _) =
     STAR -> True
     SLASH -> True
     _ -> False
+
+isPrint :: Token -> Bool
+isPrint (TOKEN token _ _ _) =
+  case token of
+    PRINT -> True
+    _ -> False
