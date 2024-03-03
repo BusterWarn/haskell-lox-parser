@@ -191,3 +191,10 @@ tests = do
       "1; var is_true = true; false;" `shouldParseAs` "1.0; V DEC -> is_true = TRUE_LIT; FALSE_LIT;"
     it "Parses empty variable declaration" $ do
       "var x = 1 + 2 * 3;" `shouldParseAs` "V DEC -> x = (1.0 + (2.0 * 3.0));"
+
+    it "Parses simple and" $ do
+      "true and false;" `shouldParseAs` "(TRUE_LIT && FALSE_LIT);"
+    it "Parses simple and" $ do
+      "1 or 2;" `shouldParseAs` "(1.0 || 2.0);"
+    it "Parses complex and + or" $ do
+      "a or b and c or d and e;" `shouldParseAs` "((a || (b && c)) || (d && e));"

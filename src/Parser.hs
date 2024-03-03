@@ -40,6 +40,10 @@ parseHelper tokens@(t : ts) statementsAcc
                in parseHelper newRest newStatementsAcc
             _ -> parseHelper rest newStatementsAcc
 
+assignment :: [Token] -> (Expr, [Token])
+assignment [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+assignment tokens@(t : ts) = undefined
+
 declaration :: [Token] -> (Expr, [Token])
 declaration [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 declaration tokens@(t : ts)
@@ -84,7 +88,39 @@ expressionStatement tokens =
 
 expression :: [Token] -> (Expr, [Token])
 expression [] = error "Empty list of Tokens!"
-expression tokens = equality tokens
+expression tokens = loxOr tokens
+
+loxOr :: [Token] -> (Expr, [Token])
+loxOr [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+loxOr tokens =
+  let (left, restFromLeft) = loxAnd tokens
+   in case left of
+        err@(ErrorExpr _) -> (err, restFromLeft)
+        _ -> matchOr left restFromLeft
+ where
+  matchOr left rest@(orToken@(TOKEN tokenType _ _ _) : ts)
+    | tokenType == OR =
+        let (right, restFromRight) = loxAnd ts
+         in case right of
+              err@(ErrorExpr _) -> (err, restFromRight)
+              _ -> matchOr (BinaryExpr left orToken right) restFromRight
+    | otherwise = (left, rest)
+
+loxAnd :: [Token] -> (Expr, [Token])
+loxAnd [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+loxAnd tokens =
+  let (left, restFromLeft) = equality tokens
+   in case left of
+        err@(ErrorExpr _) -> (err, restFromLeft)
+        _ -> matchAnd left restFromLeft
+ where
+  matchAnd left rest@(andToken@(TOKEN tokenType _ _ _) : ts)
+    | tokenType == AND =
+        let (right, restFromRight) = equality ts
+         in case right of
+              err@(ErrorExpr _) -> (err, restFromRight)
+              _ -> matchAnd (BinaryExpr left andToken right) restFromRight
+    | otherwise = (left, rest)
 
 equality :: [Token] -> (Expr, [Token])
 equality [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])

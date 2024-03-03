@@ -15,6 +15,8 @@ data Token = TOKEN TokenType String Literal Int
 instance Show Token where
   show (TOKEN tokenType stringFrom literal _)
     | tokenType == EOF = "<EOF>"
+    | tokenType == AND = "&&"
+    | tokenType == OR = "||"
     | literal == NONE = stringFrom
     | otherwise =
         case literal of
