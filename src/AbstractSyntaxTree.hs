@@ -1,9 +1,11 @@
 module AbstractSyntaxTree where
 
+import GHC.IO.SubSystem (conditional)
 import Tokens
 
 data Expr
   = Block [Expr]
+  | IfExpr Expr Expr Expr
   | PrintExpr Expr
   | LiteralExpr Token
   | UnaryExpr Token Expr
@@ -18,8 +20,11 @@ instance Show Expr where
   show (Block exprs) = "{" ++ concatMap showBlockExpr exprs ++ "} "
    where
     showBlockExpr expr = case expr of
-      Block _ -> show expr -- Blocks don't end with a semicolon
-      _ -> show expr ++ ";" -- Other expressions dotMap (\expr -> show expr ++ ";") exprs ++ "} "
+      Block _ -> show expr
+      _ -> show expr ++ ";"
+  show (IfExpr condition ifStmt EmptyExpr) = "if (" ++ show condition ++ ") " ++ show ifStmt
+  show (IfExpr condition ifStmt elseStmt) =
+    "if (" ++ show condition ++ ") " ++ show ifStmt ++ " else " ++ show elseStmt
   show (PrintExpr expr) = "print " ++ show expr
   show (LiteralExpr token) = show token
   show (UnaryExpr operator right) = "(" ++ show operator ++ " " ++ show right ++ ")"
@@ -38,6 +43,7 @@ instance Show Statements where
   show (Statements exprs) = concatMap showStmt exprs
    where
     showStmt expr@(Block _) = show expr ++ "\n"
+    showStmt expr@(IfExpr _ _ _) = show expr ++ "\n"
     showStmt expr = show expr ++ ";\n"
 
 data LoxParseError = LoxParseError String Token

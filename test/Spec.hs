@@ -223,3 +223,23 @@ tests = do
       "0;{1;{2;{3;}4;}5;}6;" `shouldParseAs` "0.0; {1.0;{2.0;{3.0;} 4.0;} 5.0;} 6.0;"
     it "Parses quite the advanced nesting" $ do
       "{ q = 0; {q = q;} 1;{x = 5;} 2; {2;} }" `shouldParseAs` "{q = 0.0;{q = q;} 1.0;{x = 5.0;} 2.0;{2.0;} }"
+
+    it "Parses simple if statements" $ do
+      "if (true) false;" `shouldParseAs` "if (TRUE_LIT) FALSE_LIT"
+    it "Parses simple if else statements" $ do
+      "if (false) x = 1; else x = 2;" `shouldParseAs` "if (FALSE_LIT) x = 1.0 else x = 2.0;"
+    it "Parses simple var dec inside if block statement." $ do
+      "if (summer) { var ice_cream = hot; }" `shouldParseAs` "if (summer) { V DEC -> ice_cream = hot; }"
+    it "Parses simple if with block" $ do
+      "if (1 == 2) { i = ice_cream; }" `shouldParseAs` "if ((1.0 == 2.0)) { i = ice_cream; }"
+    it "Parses declaration inside both if and else blocks" $ do
+      "if (true) { var x = y; } else { var y = x; }" `shouldParseAs` "if (TRUE_LIT) {V DEC -> x = y;}  else {V DEC -> y = x;}"
+    it "Parses simple if else with block" $ do
+      "if (summer) { i = coke; coke = i; } else { outside = coke + true and false; }" `shouldParseAs` "if (summer) {i = coke;coke = i;}  else {outside = ((coke + TRUE_LIT) && FALSE_LIT); }"
+    it "Parses nested if else statements" $ do
+      "if (hawaii) { if (sun) shirt = on; else false; } else if (greece) if (gyros) print tacos; else print \"fries\";" `shouldParseAs` "if (hawaii) {if (sun) shirt = on else FALSE_LIT;}  else if (greece) if (gyros) print tacos; else print \"fries\";"
+
+    it "Parser thows error if var decl is outside of if block" $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "if (x) var y = x; ") `shouldThrow` anyException
+    it "Parses " $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "if (x) y = x; else var x = y;") `shouldThrow` anyException
