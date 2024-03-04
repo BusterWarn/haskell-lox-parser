@@ -239,7 +239,25 @@ tests = do
     it "Parses nested if else statements" $ do
       "if (hawaii) { if (sun) shirt = on; else false; } else if (greece) if (gyros) print tacos; else print \"fries\";" `shouldParseAs` "if (hawaii) {if (sun) shirt = on; else FALSE_LIT;}  else if (greece) if (gyros) print tacos; else print \"fries\";"
 
+    it "Parser throws error if you forget () around if condition" $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "if x x = x; ") `shouldThrow` anyException
+    it "Parser throws error if you forget ; inside if block { }" $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "if (x) { x = x } ") `shouldThrow` anyException
     it "Parser thows error if var decl is outside of if block" $ do
       evaluate (Parser.parse $ Scanner.scanTokens "if (x) var y = x; ") `shouldThrow` anyException
-    it "Parses " $ do
+    it "Parser thows error if var decl is outside of else block" $ do
       evaluate (Parser.parse $ Scanner.scanTokens "if (x) y = x; else var x = y;") `shouldThrow` anyException
+
+    it "Parses simple while statement" $ do
+      "while (1) fork;" `shouldParseAs` "while (1.0) fork;"
+    it "Parses simple while statement with block" $ do
+      "while (1 != 2) { fork; }" `shouldParseAs` "while (( 1.0 != 2.0)) { fork; }"
+    it "Parses simple while loop with if and else and assignments" $ do
+      "while ( x == true ) if (false) x = false; else x = true;" `shouldParseAs` "while ((x == TRUE_LIT)) if (FALSE_LIT) x = FALSE_LIT; else x = TRUE_LIT;"
+    it "Parses simple while loop if and else and vardecl inside" $ do
+      "while ( x == true ) if (false) { var x = false; } else { var x = true; }" `shouldParseAs` "while ((x == TRUE_LIT))if (FALSE_LIT) { V DEC -> x = FALSE_LIT; } else { V DEC -> x = TRUE_LIT; }"
+
+    it "Parser throws error if you forget () around while condition" $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "while x x = x; ") `shouldThrow` anyException
+    it "Parser throws error if you forget ; inside while block { }" $ do
+      evaluate (Parser.parse $ Scanner.scanTokens "while (x) { x = x } ") `shouldThrow` anyException

@@ -6,7 +6,8 @@ data Stmt
   = ExprStmt Expr
   | PrintStmt Expr
   | BlockStmt [Stmt]
-  | IfStmt Expr Stmt (Maybe Stmt) -- Condition, thenBranch, elseBranch (optional)
+  | IfStmt Expr Stmt (Maybe Stmt)
+  | WhileStmt Expr Stmt
   | VarDeclStmt Token Expr
   | ErrorStmt Expr
 
@@ -20,6 +21,7 @@ instance Show Stmt where
       ++ ") "
       ++ show thenStmt
       ++ maybe "" (\e -> " else " ++ show e) elseStmt
+  show (WhileStmt condition stmt) = "while (" ++ show condition ++ ")" ++ show stmt
   show (VarDeclStmt token EmptyExpr) = "V DEC -> " ++ show token ++ ";"
   show (VarDeclStmt token expr) = "V DEC -> " ++ show token ++ " = " ++ show expr ++ ";"
   show (ErrorStmt err) = show err
@@ -56,3 +58,23 @@ instance Show LoxParseError where
     describeToken t@(TOKEN _ _ _ l)
       | isEOF t = "Line " ++ show l ++ ", reached <EOF>"
       | otherwise = "Line " ++ show l ++ ", near '" ++ show t ++ "'"
+
+getAllErrors :: Statements -> [LoxParseError]
+getAllErrors (Statements stmts) = concatMap getErrorsFromStmt stmts
+
+getErrorsFromStmt :: Stmt -> [LoxParseError]
+getErrorsFromStmt (ExprStmt expr) = getErrorsFromExpr expr
+getErrorsFromStmt (PrintStmt expr) = getErrorsFromExpr expr
+getErrorsFromStmt (BlockStmt stmts) = concatMap getErrorsFromStmt stmts
+getErrorsFromStmt (IfStmt condition thenBranch elseBranch) =
+  getErrorsFromExpr condition ++ getErrorsFromStmt thenBranch ++ maybe [] getErrorsFromStmt elseBranch
+getErrorsFromStmt (WhileStmt condition stmt) = getErrorsFromExpr condition ++ getErrorsFromStmt stmt
+getErrorsFromStmt (VarDeclStmt _ expr) = getErrorsFromExpr expr
+getErrorsFromStmt (ErrorStmt expr) = getErrorsFromExpr expr
+
+getErrorsFromExpr :: Expr -> [LoxParseError]
+getErrorsFromExpr (ErrorExpr err) = [err]
+getErrorsFromExpr (UnaryExpr _ expr) = getErrorsFromExpr expr
+getErrorsFromExpr (BinaryExpr left _ right) = getErrorsFromExpr left ++ getErrorsFromExpr right
+getErrorsFromExpr (GroupingExpr expr) = getErrorsFromExpr expr
+getErrorsFromExpr _ = []

@@ -2,6 +2,7 @@ module Parser (parse) where
 
 import AbstractSyntaxTree
 import Debug.Trace (trace)
+import GHC.IO.SubSystem (conditional)
 import Scanner
 import Tokens
 
@@ -16,25 +17,6 @@ parse tokens
        in if null errors
             then statements
             else error $ "Encountered errors while parsing:\n" ++ unlines (map show errors)
-
-getAllErrors :: Statements -> [LoxParseError]
-getAllErrors (Statements stmts) = concatMap getErrorsFromStmt stmts
-
-getErrorsFromStmt :: Stmt -> [LoxParseError]
-getErrorsFromStmt (ExprStmt expr) = getErrorsFromExpr expr
-getErrorsFromStmt (PrintStmt expr) = getErrorsFromExpr expr
-getErrorsFromStmt (BlockStmt stmts) = concatMap getErrorsFromStmt stmts
-getErrorsFromStmt (IfStmt condition thenBranch elseBranch) =
-  getErrorsFromExpr condition ++ getErrorsFromStmt thenBranch ++ maybe [] getErrorsFromStmt elseBranch
-getErrorsFromStmt (VarDeclStmt _ expr) = getErrorsFromExpr expr
-getErrorsFromStmt (ErrorStmt expr) = getErrorsFromExpr expr
-
-getErrorsFromExpr :: Expr -> [LoxParseError]
-getErrorsFromExpr (ErrorExpr err) = [err]
-getErrorsFromExpr (UnaryExpr _ expr) = getErrorsFromExpr expr
-getErrorsFromExpr (BinaryExpr left _ right) = getErrorsFromExpr left ++ getErrorsFromExpr right
-getErrorsFromExpr (GroupingExpr expr) = getErrorsFromExpr expr
-getErrorsFromExpr _ = []
 
 parseHelper :: [Token] -> [Stmt] -> Statements
 parseHelper [] statements = error $ "Parsing error! Ran out of tokens, but managed to parse:\n" ++ show statements
@@ -72,6 +54,7 @@ statement tokens@((TOKEN tokenType _ _ _) : ts)
   | tokenType == PRINT = printStatement ts
   | tokenType == LEFT_BRACE = block ts
   | tokenType == IF = ifStatement ts
+  | tokenType == WHILE = whileStatement ts
   | otherwise = expressionStatement tokens
 
 ifStatement :: [Token] -> (Stmt, [Token])
@@ -81,10 +64,10 @@ ifStatement tokens =
    in case resultAfterLeftParen of
         Right err -> (ErrorStmt $ ErrorExpr err, tokens)
         Left restAfterConsumeLeftParen ->
-          let (condition, restAfterExpr) = expression restAfterConsumeLeftParen
-              resultAfterRightParen = consume restAfterExpr RIGHT_PAREN "Expect ')' after if expression."
+          let (condition, restAfterCondition) = expression restAfterConsumeLeftParen
+              resultAfterRightParen = consume restAfterCondition RIGHT_PAREN ("Expect ')' after if condition: '" ++ show condition ++ "'")
            in case resultAfterRightParen of
-                Right err -> (ErrorStmt $ ErrorExpr err, restAfterExpr)
+                Right err -> (ErrorStmt $ ErrorExpr err, restAfterCondition)
                 Left restAfterRightParen ->
                   let (ifStmt, restAfterIfStatement@(t : restAfterElse)) = statement restAfterRightParen
                       (maybeElseStmt, finalRest) = case t of
@@ -93,6 +76,21 @@ ifStatement tokens =
                            in (Just elseStmt, restAfterElseStatement)
                         _ -> (Nothing, restAfterIfStatement)
                    in (IfStmt condition ifStmt maybeElseStmt, finalRest)
+
+whileStatement :: [Token] -> (Stmt, [Token])
+whileStatement [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+whileStatement tokens =
+  let resultAfterLeftParen = consume tokens LEFT_PAREN "Expect '(' after 'while'."
+   in case resultAfterLeftParen of
+        Right err -> (ErrorStmt $ ErrorExpr err, tokens)
+        Left restAfterConsumeLeftParen ->
+          let (condition, restAfterCondition) = expression restAfterConsumeLeftParen
+              resultAfterRightParen = consume restAfterCondition RIGHT_PAREN ("Expect ')' after while condition: '" ++ show condition ++ "'")
+           in case resultAfterRightParen of
+                Right err -> (ErrorStmt $ ErrorExpr err, restAfterCondition)
+                Left restAfterRightParen ->
+                  let (whileStatement, restAfterWhileStatement) = statement restAfterRightParen
+                   in (WhileStmt condition whileStatement, restAfterWhileStatement)
 
 block :: [Token] -> (Stmt, [Token])
 block [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
