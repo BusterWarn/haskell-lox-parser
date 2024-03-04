@@ -255,6 +255,7 @@ primary :: [Token] -> (Expr, [Token])
 primary [] = error "Empty list of Tokens!"
 primary (t@(TOKEN tokenType _ _ _) : ts)
   | isLiteral t = (LiteralExpr t, ts)
+  | tokenType == RETURN = (LiteralExpr t, ts)
   | tokenType == LEFT_PAREN =
       let (left, rest) = expression ts
           result = consume rest RIGHT_PAREN "Expect ')' after expression."

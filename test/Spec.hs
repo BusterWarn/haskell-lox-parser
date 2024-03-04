@@ -126,6 +126,11 @@ tests = do
       let invalidInput = init $ Scanner.scanTokens "1 + 2;" -- Remove EOF with init
       evaluate (Parser.parse invalidInput) `shouldThrow` anyException
 
+    it "Parses simple return" $ do
+      "return;" `shouldParseAs` "return;"
+    it "Parses pretty advanced example" $ do
+      "if ( a < 5 ) { print g; 88; } else { if (false) { while (a=5) return; } }" `shouldParseAs` "if((a<5.0)){printg;88.0;}else{if(FALSE_LIT){while(a=5.0)return;}}"
+
     it "Parses simple unary !" $ do
       "!false;" `shouldParseAs` "(!FALSE_LIT);"
       "!!true;" `shouldParseAs` "(!(!TRUE_LIT));"
