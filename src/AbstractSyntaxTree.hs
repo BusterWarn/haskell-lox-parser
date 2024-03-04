@@ -1,50 +1,51 @@
 module AbstractSyntaxTree where
 
-import GHC.IO.SubSystem (conditional)
 import Tokens
 
+data Stmt
+  = ExprStmt Expr
+  | PrintStmt Expr
+  | BlockStmt [Stmt]
+  | IfStmt Expr Stmt (Maybe Stmt) -- Condition, thenBranch, elseBranch (optional)
+  | VarDeclStmt Token Expr
+  | ErrorStmt Expr
+
+instance Show Stmt where
+  show (ExprStmt expr) = show expr ++ ";"
+  show (PrintStmt expr) = "print " ++ show expr ++ ";"
+  show (BlockStmt stmts) = "{ " ++ concatMap (\stmt -> show stmt ++ " ") stmts ++ "}"
+  show (IfStmt condition thenStmt elseStmt) =
+    "if ("
+      ++ show condition
+      ++ ") "
+      ++ show thenStmt
+      ++ maybe "" (\e -> " else " ++ show e) elseStmt
+  show (VarDeclStmt token EmptyExpr) = "V DEC -> " ++ show token ++ ";"
+  show (VarDeclStmt token expr) = "V DEC -> " ++ show token ++ " = " ++ show expr ++ ";"
+  show (ErrorStmt err) = show err
+
 data Expr
-  = Block [Expr]
-  | IfExpr Expr Expr Expr
-  | PrintExpr Expr
-  | LiteralExpr Token
+  = LiteralExpr Token
+  | AssignExpr Token Expr
   | UnaryExpr Token Expr
   | BinaryExpr Expr Token Expr
   | GroupingExpr Expr
-  | DeclExpr Expr Token
-  | AssignExpr Token Expr
   | ErrorExpr LoxParseError
   | EmptyExpr
 
 instance Show Expr where
-  show (Block exprs) = "{" ++ concatMap showBlockExpr exprs ++ "} "
-   where
-    showBlockExpr expr = case expr of
-      Block _ -> show expr
-      _ -> show expr ++ ";"
-  show (IfExpr condition ifStmt EmptyExpr) = "if (" ++ show condition ++ ") " ++ show ifStmt
-  show (IfExpr condition ifStmt elseStmt) =
-    "if (" ++ show condition ++ ") " ++ show ifStmt ++ " else " ++ show elseStmt
-  show (PrintExpr expr) = "print " ++ show expr
   show (LiteralExpr token) = show token
   show (UnaryExpr operator right) = "(" ++ show operator ++ " " ++ show right ++ ")"
   show (BinaryExpr left operator right) = "(" ++ show left ++ " " ++ show operator ++ " " ++ show right ++ ")"
   show (GroupingExpr expr) = "(" ++ show expr ++ ")"
-  show (DeclExpr EmptyExpr token) = "V DEC -> " ++ show token
-  show (DeclExpr expr token) = "V DEC -> " ++ show token ++ " = " ++ show expr
   show (AssignExpr token expr) = show token ++ " = " ++ show expr
   show (ErrorExpr err) = show err
   show EmptyExpr = ""
 
-newtype Statements = Statements [Expr]
+newtype Statements = Statements [Stmt]
 
 instance Show Statements where
-  show (Statements []) = ""
-  show (Statements exprs) = concatMap showStmt exprs
-   where
-    showStmt expr@(Block _) = show expr ++ "\n"
-    showStmt expr@(IfExpr _ _ _) = show expr ++ "\n"
-    showStmt expr = show expr ++ ";\n"
+  show (Statements stmts) = concatMap show stmts
 
 data LoxParseError = LoxParseError String Token
 

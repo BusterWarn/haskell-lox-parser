@@ -18,7 +18,16 @@ parse tokens
             else error $ "Encountered errors while parsing:\n" ++ unlines (map show errors)
 
 getAllErrors :: Statements -> [LoxParseError]
-getAllErrors (Statements exprs) = concatMap getErrorsFromExpr exprs
+getAllErrors (Statements stmts) = concatMap getErrorsFromStmt stmts
+
+getErrorsFromStmt :: Stmt -> [LoxParseError]
+getErrorsFromStmt (ExprStmt expr) = getErrorsFromExpr expr
+getErrorsFromStmt (PrintStmt expr) = getErrorsFromExpr expr
+getErrorsFromStmt (BlockStmt stmts) = concatMap getErrorsFromStmt stmts
+getErrorsFromStmt (IfStmt condition thenBranch elseBranch) =
+  getErrorsFromExpr condition ++ getErrorsFromStmt thenBranch ++ maybe [] getErrorsFromStmt elseBranch
+getErrorsFromStmt (VarDeclStmt _ expr) = getErrorsFromExpr expr
+getErrorsFromStmt (ErrorStmt expr) = getErrorsFromExpr expr
 
 getErrorsFromExpr :: Expr -> [LoxParseError]
 getErrorsFromExpr (ErrorExpr err) = [err]
@@ -27,90 +36,93 @@ getErrorsFromExpr (BinaryExpr left _ right) = getErrorsFromExpr left ++ getError
 getErrorsFromExpr (GroupingExpr expr) = getErrorsFromExpr expr
 getErrorsFromExpr _ = []
 
-parseHelper :: [Token] -> [Expr] -> Statements
+parseHelper :: [Token] -> [Stmt] -> Statements
 parseHelper [] statements = error $ "Parsing error! Ran out of tokens, but managed to parse:\n" ++ show statements
 parseHelper tokens@(t : ts) statementsAcc
   | null ts && isEOF t = Statements $ reverse statementsAcc
   | otherwise =
-      let (s, rest) = declaration tokens
-          newStatementsAcc = s : statementsAcc
-       in case s of
-            (ErrorExpr _) ->
+      let (declStatement, rest) = declaration tokens
+          newStatementsAcc = declStatement : statementsAcc
+       in case declStatement of
+            (ErrorStmt _) ->
               let newRest = synchronize rest
                in parseHelper newRest newStatementsAcc
             _ -> parseHelper rest newStatementsAcc
 
-declaration :: [Token] -> (Expr, [Token])
-declaration [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+declaration :: [Token] -> (Stmt, [Token])
+declaration [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 declaration tokens@(t : ts)
   | isVar t = varDeclaration ts
   | otherwise = statement tokens
 
-varDeclaration :: [Token] -> (Expr, [Token])
-varDeclaration [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+varDeclaration :: [Token] -> (Stmt, [Token])
+varDeclaration [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 varDeclaration (idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN EQUAL _ _ _) : exprTokens) =
   let (expr, restAfterExppresion) = expression exprTokens
       result = consume restAfterExppresion SEMICOLON "Expect ';' after expression." -- TODO: fix bug here
    in case result of
-        Left restAfterConsume -> (DeclExpr expr idToken, restAfterConsume)
-        Right err -> (ErrorExpr err, restAfterExppresion)
-varDeclaration (idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN SEMICOLON _ _ _) : rest) = (DeclExpr EmptyExpr idToken, rest)
-varDeclaration tokens@(t : _) = (ErrorExpr $ LoxParseError ("Expect '=' or ';' after identifier, got: " ++ show t) t, tokens)
+        Left restAfterConsume -> (VarDeclStmt idToken expr, restAfterConsume)
+        Right err -> (ErrorStmt $ ErrorExpr err, restAfterExppresion)
+varDeclaration (idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN SEMICOLON _ _ _) : rest) = (VarDeclStmt idToken EmptyExpr, rest)
+varDeclaration tokens@(t : _) = (ErrorStmt $ ErrorExpr $ LoxParseError ("Expect '=' or ';' after identifier, got: " ++ show t) t, tokens)
 
-statement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+statement :: [Token] -> (Stmt, [Token])
+statement [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 statement tokens@((TOKEN tokenType _ _ _) : ts)
   | tokenType == PRINT = printStatement ts
   | tokenType == LEFT_BRACE = block ts
   | tokenType == IF = ifStatement ts
   | otherwise = expressionStatement tokens
 
-ifStatement :: [Token] -> (Expr, [Token])
-ifStatement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+ifStatement :: [Token] -> (Stmt, [Token])
+ifStatement [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 ifStatement tokens =
   let resultAfterLeftParen = consume tokens LEFT_PAREN "Expect '(' after 'if'."
    in case resultAfterLeftParen of
-        Right err -> (ErrorExpr err, tokens)
+        Right err -> (ErrorStmt $ ErrorExpr err, tokens)
         Left restAfterConsumeLeftParen ->
           let (condition, restAfterExpr) = expression restAfterConsumeLeftParen
               resultAfterRightParen = consume restAfterExpr RIGHT_PAREN "Expect ')' after if expression."
            in case resultAfterRightParen of
-                Right err -> (ErrorExpr err, restAfterExpr)
+                Right err -> (ErrorStmt $ ErrorExpr err, restAfterExpr)
                 Left restAfterRightParen ->
-                  let (ifStmt, restAfterStatement@(t : restAfterElse)) = statement restAfterRightParen
-                      (elseStmt, finalRest) = case t of
-                        (TOKEN ELSE _ _ _) -> statement restAfterElse
-                        _ -> (EmptyExpr, restAfterStatement)
-                   in (IfExpr condition ifStmt elseStmt, finalRest)
+                  let (ifStmt, restAfterIfStatement@(t : restAfterElse)) = statement restAfterRightParen
+                      (maybeElseStmt, finalRest) = case t of
+                        (TOKEN ELSE _ _ _) ->
+                          let (elseStmt, restAfterElseStatement) = statement restAfterElse
+                           in (Just elseStmt, restAfterElseStatement)
+                        _ -> (Nothing, restAfterIfStatement)
+                   in (IfStmt condition ifStmt maybeElseStmt, finalRest)
 
-block :: [Token] -> (Expr, [Token])
-block [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+block :: [Token] -> (Stmt, [Token])
+block [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 block tokens = blockHelper tokens []
  where
   blockHelper [] _ = error "Internal parser error. Nothing to parse, but parser expects statement in block."
   blockHelper rest@(t@(TOKEN tokenType _ _ _) : ts) tokensAcc
-    | tokenType == EOF = (ErrorExpr $ LoxParseError "Expect '}' after block" t, rest)
-    | tokenType == RIGHT_BRACE = (Block $ reverse tokensAcc, ts)
+    | tokenType == EOF = (ErrorStmt $ ErrorExpr $ LoxParseError "Expect '}' after block" t, rest)
+    | tokenType == RIGHT_BRACE = (BlockStmt $ reverse tokensAcc, ts)
     | otherwise =
         let (newStatement, statementRest) = declaration rest
          in blockHelper statementRest (newStatement : tokensAcc)
 
-printStatement :: [Token] -> (Expr, [Token])
-printStatement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+printStatement :: [Token] -> (Stmt, [Token])
+printStatement [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 printStatement tokens =
   let (expr, rest) = expression tokens
       result = consume rest SEMICOLON "Expect ';' after value."
    in case result of
-        Left restAfterConsume -> (PrintExpr expr, restAfterConsume)
-        Right err -> (ErrorExpr err, rest)
+        Left restAfterConsume -> (PrintStmt expr, restAfterConsume)
+        Right err -> (ErrorStmt $ ErrorExpr err, rest)
 
-expressionStatement :: [Token] -> (Expr, [Token])
-expressionStatement [] = (ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+expressionStatement :: [Token] -> (Stmt, [Token])
+expressionStatement [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
 expressionStatement tokens =
   let (expr, rest) = expression tokens
       result = consume rest SEMICOLON "Expect ';' after expression."
    in case result of
-        Left restAfterConsume -> (expr, restAfterConsume)
-        Right err -> (ErrorExpr err, rest)
+        Left restAfterConsume -> (ExprStmt expr, restAfterConsume)
+        Right err -> (ErrorStmt $ ErrorExpr err, rest)
 
 expression :: [Token] -> (Expr, [Token])
 expression [] = error "Empty list of Tokens!"
