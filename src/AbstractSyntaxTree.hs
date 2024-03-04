@@ -62,9 +62,11 @@ instance Show LoxParseError where
       | isEOF t = "Line " ++ show l ++ ", reached <EOF>"
       | otherwise = "Line " ++ show l ++ ", near '" ++ show t ++ "'"
 
+-- Collects all parse errors from a list of statements.
 getAllErrors :: Statements -> [LoxParseError]
 getAllErrors (Statements stmts) = concatMap getErrorsFromStmt stmts
 
+-- Collects all parse errors from a single statement.
 getErrorsFromStmt :: Stmt -> [LoxParseError]
 getErrorsFromStmt (ExprStmt expr) = getErrorsFromExpr expr
 getErrorsFromStmt (PrintStmt expr) = getErrorsFromExpr expr
@@ -75,6 +77,7 @@ getErrorsFromStmt (WhileStmt condition stmt) = getErrorsFromExpr condition ++ ge
 getErrorsFromStmt (VarDeclStmt _ expr) = getErrorsFromExpr expr
 getErrorsFromStmt (ErrorStmt expr) = getErrorsFromExpr expr
 
+-- Collects all parse errors from a single expression.
 getErrorsFromExpr :: Expr -> [LoxParseError]
 getErrorsFromExpr (ErrorExpr err) = [err]
 getErrorsFromExpr (UnaryExpr _ expr) = getErrorsFromExpr expr
