@@ -2,6 +2,14 @@ module AbstractSyntaxTree where
 
 import Tokens
 
+newtype Ast = Ast [Stmt]
+
+instance Show Ast where
+  show (Ast stmts) =
+    let baseDeclarations = map show stmts
+        count = length baseDeclarations
+     in unlines $ show count : baseDeclarations
+
 data Stmt
   = ExprStmt Expr
   | PrintStmt Expr
@@ -44,14 +52,6 @@ instance Show Expr where
   show (ErrorExpr err) = show err
   show EmptyExpr = ""
 
-newtype Statements = Statements [Stmt]
-
-instance Show Statements where
-  show (Statements stmts) =
-    let baseDeclarations = map show stmts
-        count = length baseDeclarations
-     in unlines $ show count : baseDeclarations
-
 data LoxParseError = LoxParseError String Token
 
 instance Show LoxParseError where
@@ -62,9 +62,9 @@ instance Show LoxParseError where
       | isEOF t = "Line " ++ show l ++ ", reached <EOF>"
       | otherwise = "Line " ++ show l ++ ", near '" ++ show t ++ "'"
 
--- Collects all parse errors from a list of statements.
-getAllErrors :: Statements -> [LoxParseError]
-getAllErrors (Statements stmts) = concatMap getErrorsFromStmt stmts
+-- Collects all parse errors from Ast
+getAllErrors :: Ast -> [LoxParseError]
+getAllErrors (Ast stmts) = concatMap getErrorsFromStmt stmts
 
 -- Collects all parse errors from a single statement.
 getErrorsFromStmt :: Stmt -> [LoxParseError]
