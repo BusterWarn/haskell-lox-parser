@@ -47,7 +47,10 @@ instance Show Expr where
 newtype Statements = Statements [Stmt]
 
 instance Show Statements where
-  show (Statements stmts) = concatMap show stmts
+  show (Statements stmts) =
+    let baseDeclarations = map show stmts
+        count = length baseDeclarations
+     in unlines $ show count : baseDeclarations
 
 data LoxParseError = LoxParseError String Token
 

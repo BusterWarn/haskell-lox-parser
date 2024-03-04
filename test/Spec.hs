@@ -126,53 +126,48 @@ tests = do
       let invalidInput = init $ Scanner.scanTokens "1 + 2;" -- Remove EOF with init
       evaluate (Parser.parse invalidInput) `shouldThrow` anyException
 
-    it "Parses simple return" $ do
-      "return;" `shouldParseAs` "return;"
-    it "Parses pretty advanced example" $ do
-      "if ( a < 5 ) { print g; 88; } else { if (false) { while (a=5) return; } }" `shouldParseAs` "if((a<5.0)){printg;88.0;}else{if(FALSE_LIT){while(a=5.0)return;}}"
-
     it "Parses simple unary !" $ do
-      "!false;" `shouldParseAs` "(!FALSE_LIT);"
-      "!!true;" `shouldParseAs` "(!(!TRUE_LIT));"
+      "!false;" `shouldParseAs` "1 (!FALSE_LIT);"
+      "!!true;" `shouldParseAs` "1 (!(!TRUE_LIT));"
     it "Parses simple unary -" $ do
-      "-1;" `shouldParseAs` "(-1.0);"
-      "--2;" `shouldParseAs` "(-(-2.0));"
+      "-1;" `shouldParseAs` "1 (-1.0);"
+      "--2;" `shouldParseAs` "1 (-(-2.0));"
 
     it "Parses basic additative" $ do
-      "2 + 3 + 5;" `shouldParseAs` "((2.0 + 3.0) + 5.0);"
+      "2 + 3 + 5;" `shouldParseAs` "1 ((2.0 + 3.0) + 5.0);"
     it "Parses longer additative" $ do
-      "1 + 2 + 3 + 4 + 5 + 6;" `shouldParseAs` "(((((1.0 + 2.0) + 3.0) + 4.0) + 5.0) + 6.0);"
+      "1 + 2 + 3 + 4 + 5 + 6;" `shouldParseAs` "1 (((((1.0 + 2.0) + 3.0) + 4.0) + 5.0) + 6.0);"
     it "Parses basic multiplicative" $ do
-      "2 * 3 * 5;" `shouldParseAs` "((2.0 * 3.0) * 5.0);"
+      "2 * 3 * 5;" `shouldParseAs` "1 ((2.0 * 3.0) * 5.0);"
     it "Parses longer multiplicative" $ do
-      "1 * 2 * 3 * 4 * 5 * 6;" `shouldParseAs` "(((((1.0 * 2.0) * 3.0) * 4.0) * 5.0) * 6.0);"
+      "1 * 2 * 3 * 4 * 5 * 6;" `shouldParseAs` "1 (((((1.0 * 2.0) * 3.0) * 4.0) * 5.0) * 6.0);"
     it "Parses mixed addition and multiplication basic 1" $ do
-      "1 + 2 * 3;" `shouldParseAs` "(1.0 + (2.0 * 3.0));"
+      "1 + 2 * 3;" `shouldParseAs` "1 (1.0 + (2.0 * 3.0));"
     it "Parses mixed addition and multiplication basic 2" $ do
-      "1 * 2 + 3;" `shouldParseAs` "((1.0 * 2.0) + 3.0);"
+      "1 * 2 + 3;" `shouldParseAs` "1 ((1.0 * 2.0) + 3.0);"
     it "Parses mixed addition and multiplication advanced 1" $ do
-      "1 + 2 * 3 + 4;" `shouldParseAs` "((1.0 + (2.0 * 3.0)) + 4.0);"
+      "1 + 2 * 3 + 4;" `shouldParseAs` "1 ((1.0 + (2.0 * 3.0)) + 4.0);"
     it "Parses mixed addition and multiplication advanced 2" $ do
-      "1 + 2 * 3 + 4 * 5 * 6 + 7;" `shouldParseAs` "(((1.0 + (2.0 * 3.0)) + ((4.0 * 5.0) * 6.0)) + 7.0);"
+      "1 + 2 * 3 + 4 * 5 * 6 + 7;" `shouldParseAs` "1 (((1.0 + (2.0 * 3.0)) + ((4.0 * 5.0) * 6.0)) + 7.0);"
 
     it "Parses mixed addition and multiplication with parenthasis 1" $ do
-      "(1 + 2) * 3 + 4;" `shouldParseAs` "((((1.0 + 2.0)) * 3.0) + 4.0);"
+      "(1 + 2) * 3 + 4;" `shouldParseAs` "1 ((((1.0 + 2.0)) * 3.0) + 4.0);"
     it "Parses mixed addition and multiplication advanced 2" $ do
-      "1 + 2 * (3 + 4) * (5 * 6 + 7);" `shouldParseAs` "(1.0 + ((2.0 * ((3.0 + 4.0))) * (((5.0 * 6.0) + 7.0))));"
+      "1 + 2 * (3 + 4) * (5 * 6 + 7);" `shouldParseAs` "1 (1.0 + ((2.0 * ((3.0 + 4.0))) * (((5.0 * 6.0) + 7.0))));"
 
     it "Parses simple comparisions" $ do
-      "1 < 2;" `shouldParseAs` "(1.0 < 2.0);"
-      "1 <= 2;" `shouldParseAs` "(1.0 <= 2.0);"
-      "1 > 2;" `shouldParseAs` "(1.0 > 2.0);"
-      "1 >= 2;" `shouldParseAs` "(1.0 >= 2.0);"
+      "1 < 2;" `shouldParseAs` "1 (1.0 < 2.0);"
+      "1 <= 2;" `shouldParseAs` "1 (1.0 <= 2.0);"
+      "1 > 2;" `shouldParseAs` "1 (1.0 > 2.0);"
+      "1 >= 2;" `shouldParseAs` "1 (1.0 >= 2.0);"
 
     it "Parses simple print" $ do
-      "print 1;" `shouldParseAs` "print 1.0;"
-      "print (1);" `shouldParseAs` "print (1.0);"
-      "print 1 + 2;" `shouldParseAs` "print (1.0 + 2.0);"
+      "print 1;" `shouldParseAs` "1 print 1.0;"
+      "print (1);" `shouldParseAs` "1 print (1.0);"
+      "print 1 + 2;" `shouldParseAs` "1 print (1.0 + 2.0);"
 
     it "Parses multiple simple expressions" $ do
-      "1 + 2; (3 + 4); !true;" `shouldParseAs` "(1.0 + 2.0);  ((3.0 + 4.0));  (! TRUE_LIT);"
+      "1 + 2; (3 + 4); !true;" `shouldParseAs` "3 (1.0 + 2.0);  ((3.0 + 4.0));  (! TRUE_LIT);"
 
     it "Throws an error when reading a single '(' 1" $ do
       evaluate (Parser.parse $ Scanner.scanTokens "(2;") `shouldThrow` anyException
@@ -186,63 +181,63 @@ tests = do
       evaluate (Parser.parse $ Scanner.scanTokens "1 + 1; (4 + 4; (5 + 9);") `shouldThrow` anyException
 
     it "Parses empty variable declaration" $ do
-      "var x;" `shouldParseAs` "V DEC -> x;"
+      "var x;" `shouldParseAs` "1 V DEC -> x;"
     it "Parses empty variable declaration in the middle of statements" $ do
-      "1; var x; false;" `shouldParseAs` "1.0; V DEC -> x; FALSE_LIT;"
+      "1; var x; false;" `shouldParseAs` "3 1.0; V DEC -> x; FALSE_LIT;"
     it "Parses simple variable declaration" $ do
-      "var x = 1;" `shouldParseAs` "V DEC -> x = 1.0;"
-      "var x = false;" `shouldParseAs` "V DEC -> x = FALSE_LIT;"
+      "var x = 1;" `shouldParseAs` "1 V DEC -> x = 1.0;"
+      "var x = false;" `shouldParseAs` "1 V DEC -> x = FALSE_LIT;"
     it "Parses empty variable declaration in the middle of statements" $ do
-      "1; var is_true = true; false;" `shouldParseAs` "1.0; V DEC -> is_true = TRUE_LIT; FALSE_LIT;"
+      "1; var is_true = true; false;" `shouldParseAs` "3 1.0; V DEC -> is_true = TRUE_LIT; FALSE_LIT;"
     it "Parses empty variable declaration" $ do
-      "var x = 1 + 2 * 3;" `shouldParseAs` "V DEC -> x = (1.0 + (2.0 * 3.0));"
+      "var x = 1 + 2 * 3;" `shouldParseAs` "1 V DEC -> x = (1.0 + (2.0 * 3.0));"
     it "Parses variable string" $ do
-      "var greet = \"Hello World!\";" `shouldParseAs` "V DEC -> greet = \" Hello World ! \";"
+      "var greet = \"Hello World!\";" `shouldParseAs` "1 V DEC -> greet = \" Hello World ! \";"
 
     it "Parses simple assignment" $ do
-      "gimme = x;" `shouldParseAs` "gimme = x;"
+      "gimme = x;" `shouldParseAs` "1 gimme = x;"
     it "Parses slighly more advanced assignment" $ do
-      "gimme = (1 + 2 * 3);" `shouldParseAs` "gimme = ((1.0 + (2.0 * 3.0)));"
+      "gimme = (1 + 2 * 3);" `shouldParseAs` "1 gimme = ((1.0 + (2.0 * 3.0)));"
     it "Parses assignments between statements" $ do
-      "a = b; var x; x = 0; var gimme = x; gimme = gimme; 1 + 1;" `shouldParseAs` "a = b; V DEC -> x; x = 0.0; V DEC -> gimme = x; gimme = gimme; (1.0 + 1.0);"
+      "a = b; var x; x = 0; var gimme = x; gimme = gimme; 1 + 1;" `shouldParseAs` "6 a = b; V DEC -> x; x = 0.0; V DEC -> gimme = x; gimme = gimme; (1.0 + 1.0);"
     it "Throws when trying to assign to rvalue" $ do
       evaluate (Parser.parse $ Scanner.scanTokens "1 = true;") `shouldThrow` anyException
       evaluate (Parser.parse $ Scanner.scanTokens "true = false;") `shouldThrow` anyException
 
     it "Parses simple and" $ do
-      "true and false;" `shouldParseAs` "(TRUE_LIT && FALSE_LIT);"
+      "true and false;" `shouldParseAs` "1 (TRUE_LIT && FALSE_LIT);"
     it "Parses simple and" $ do
-      "1 or 2;" `shouldParseAs` "(1.0 || 2.0);"
+      "1 or 2;" `shouldParseAs` "1 (1.0 || 2.0);"
     it "Parses complex and + or" $ do
-      "a or b and c or d and e;" `shouldParseAs` "((a || (b && c)) || (d && e));"
+      "a or b and c or d and e;" `shouldParseAs` "1 ((a || (b && c)) || (d && e));"
 
     it "Parses simple block" $ do
-      "{ 1; 2; }" `shouldParseAs` "{ 1.0; 2.0; }"
-      "{ a = b; }" `shouldParseAs` "{ a = b; }"
+      "{ 1; 2; }" `shouldParseAs` "1 { 1.0; 2.0; }"
+      "{ a = b; }" `shouldParseAs` "1 { a = b; }"
     it "Parses simple nested blocks" $ do
-      "{{ 1; 2; }}" `shouldParseAs` "{{ 1.0; 2.0; }}"
-      "{{{ a = b; }}}" `shouldParseAs` "{{{ a = b; }}}"
+      "{{ 1; 2; }}" `shouldParseAs` "1 {{ 1.0; 2.0; }}"
+      "{{{ a = b; }}}" `shouldParseAs` "1 {{{ a = b; }}}"
     it "Parses blocks between statements" $ do
-      "1; { 1; 2; } 2+2;" `shouldParseAs` "1.0; {1.0;2.0;} (2.0 + 2.0);"
+      "1; { 1; 2; } 2+2;" `shouldParseAs` "3 1.0; {1.0;2.0;} (2.0 + 2.0);"
     it "Parses slightly advanced nesting" $ do
-      "0;{1;{2;{3;}4;}5;}6;" `shouldParseAs` "0.0; {1.0;{2.0;{3.0;} 4.0;} 5.0;} 6.0;"
+      "0;{1;{2;{3;}4;}5;}6;" `shouldParseAs` "3 0.0; {1.0;{2.0;{3.0;} 4.0;} 5.0;} 6.0;"
     it "Parses quite the advanced nesting" $ do
-      "{ q = 0; {q = q;} 1;{x = 5;} 2; {2;} }" `shouldParseAs` "{q = 0.0;{q = q;} 1.0;{x = 5.0;} 2.0;{2.0;} }"
+      "{ q = 0; {q = q;} 1;{x = 5;} 2; {2;} }" `shouldParseAs` "1 {q = 0.0;{q = q;} 1.0;{x = 5.0;} 2.0;{2.0;} }"
 
     it "Parses simple if statements" $ do
-      "if (true) false;" `shouldParseAs` "if (TRUE_LIT) FALSE_LIT;"
+      "if (true) false;" `shouldParseAs` "1 if (TRUE_LIT) FALSE_LIT;"
     it "Parses simple if else statements" $ do
-      "if (false) x = 1; else x = 2;" `shouldParseAs` "if (FALSE_LIT) x = 1.0; else x = 2.0;"
+      "if (false) x = 1; else x = 2;" `shouldParseAs` "1 if (FALSE_LIT) x = 1.0; else x = 2.0;"
     it "Parses simple var dec inside if block statement." $ do
-      "if (summer) { var ice_cream = hot; }" `shouldParseAs` "if (summer) { V DEC -> ice_cream = hot; }"
+      "if (summer) { var ice_cream = hot; }" `shouldParseAs` "1 if (summer) { V DEC -> ice_cream = hot; }"
     it "Parses simple if with block" $ do
-      "if (1 == 2) { i = ice_cream; }" `shouldParseAs` "if ((1.0 == 2.0)) { i = ice_cream; }"
+      "if (1 == 2) { i = ice_cream; }" `shouldParseAs` "1 if ((1.0 == 2.0)) { i = ice_cream; }"
     it "Parses declaration inside both if and else blocks" $ do
-      "if (true) { var x = y; } else { var y = x; }" `shouldParseAs` "if (TRUE_LIT) {V DEC -> x = y;}  else {V DEC -> y = x;}"
+      "if (true) { var x = y; } else { var y = x; }" `shouldParseAs` "1 if (TRUE_LIT) {V DEC -> x = y;}  else {V DEC -> y = x;}"
     it "Parses simple if else with block" $ do
-      "if (summer) { i = coke; coke = i; } else { outside = coke + true and false; }" `shouldParseAs` "if (summer) {i = coke;coke = i;}  else {outside = ((coke + TRUE_LIT) && FALSE_LIT); }"
+      "if (summer) { i = coke; coke = i; } else { outside = coke + true and false; }" `shouldParseAs` "1 if (summer) {i = coke;coke = i;}  else {outside = ((coke + TRUE_LIT) && FALSE_LIT); }"
     it "Parses nested if else statements" $ do
-      "if (hawaii) { if (sun) shirt = on; else false; } else if (greece) if (gyros) print tacos; else print \"fries\";" `shouldParseAs` "if (hawaii) {if (sun) shirt = on; else FALSE_LIT;}  else if (greece) if (gyros) print tacos; else print \"fries\";"
+      "if (hawaii) { if (sun) shirt = on; else false; } else if (greece) if (gyros) print tacos; else print \"fries\";" `shouldParseAs` "1 if (hawaii) {if (sun) shirt = on; else FALSE_LIT;}  else if (greece) if (gyros) print tacos; else print \"fries\";"
 
     it "Parser throws error if you forget () around if condition" $ do
       evaluate (Parser.parse $ Scanner.scanTokens "if x x = x; ") `shouldThrow` anyException
@@ -254,15 +249,22 @@ tests = do
       evaluate (Parser.parse $ Scanner.scanTokens "if (x) y = x; else var x = y;") `shouldThrow` anyException
 
     it "Parses simple while statement" $ do
-      "while (1) fork;" `shouldParseAs` "while (1.0) fork;"
+      "while (1) fork;" `shouldParseAs` "1 while (1.0) fork;"
     it "Parses simple while statement with block" $ do
-      "while (1 != 2) { fork; }" `shouldParseAs` "while (( 1.0 != 2.0)) { fork; }"
+      "while (1 != 2) { fork; }" `shouldParseAs` "1 while (( 1.0 != 2.0)) { fork; }"
     it "Parses simple while loop with if and else and assignments" $ do
-      "while ( x == true ) if (false) x = false; else x = true;" `shouldParseAs` "while ((x == TRUE_LIT)) if (FALSE_LIT) x = FALSE_LIT; else x = TRUE_LIT;"
+      "while ( x == true ) if (false) x = false; else x = true;" `shouldParseAs` "1 while ((x == TRUE_LIT)) if (FALSE_LIT) x = FALSE_LIT; else x = TRUE_LIT;"
     it "Parses simple while loop if and else and vardecl inside" $ do
-      "while ( x == true ) if (false) { var x = false; } else { var x = true; }" `shouldParseAs` "while ((x == TRUE_LIT))if (FALSE_LIT) { V DEC -> x = FALSE_LIT; } else { V DEC -> x = TRUE_LIT; }"
+      "while ( x == true ) if (false) { var x = false; } else { var x = true; }" `shouldParseAs` "1 while ((x == TRUE_LIT))if (FALSE_LIT) { V DEC -> x = FALSE_LIT; } else { V DEC -> x = TRUE_LIT; }"
 
     it "Parser throws error if you forget () around while condition" $ do
       evaluate (Parser.parse $ Scanner.scanTokens "while x x = x; ") `shouldThrow` anyException
     it "Parser throws error if you forget ; inside while block { }" $ do
       evaluate (Parser.parse $ Scanner.scanTokens "while (x) { x = x } ") `shouldThrow` anyException
+
+    it "Parses simple return" $ do
+      "return;" `shouldParseAs` "1 return;"
+    it "Parses pretty advanced example 1" $ do
+      "if ( a < 5 ) { print g; 88; } else { if (false) { while (a=5) return; } }" `shouldParseAs` "1 if((a<5.0)){printg;88.0;}else{if(FALSE_LIT){while(a=5.0)return;}}"
+    it "Parses pretty advanced example 2" $ do
+      "if (i_can_sing) { you_can_dance = 2; var x = 7; } else print hi; while (1 != 2) {return;} {{ 1; }}" `shouldParseAs` "3 if (i_can_sing) { you_can_dance = 2.0; V DEC -> x = 7.0; } else print hi; while ((1.0 != 2.0)){ return; } { { 1.0; } }"
