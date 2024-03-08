@@ -193,6 +193,11 @@ tests = do
       "var x = 1 + 2 * 3;" `shouldParseAs` "1 V DEC -> x = (1.0 + (2.0 * 3.0));"
     it "Parses variable string" $ do
       "var greet = \"Hello World!\";" `shouldParseAs` "1 V DEC -> greet = \" Hello World ! \";"
+    it "Parses empty const declaration" $ do
+      "const x;" `shouldParseAs` "1 C DEC -> x;"
+    it "Parses simple const declaration" $ do
+      "const x = 1;" `shouldParseAs` "1 C DEC -> x = 1.0;"
+      "const x = false;" `shouldParseAs` "1 C DEC -> x = FALSE_LIT;"
 
     it "Parses simple assignment" $ do
       "gimme = x;" `shouldParseAs` "1 gimme = x;"
@@ -267,4 +272,4 @@ tests = do
     it "Parses pretty advanced example 1" $ do
       "if ( a < 5 ) { print g; 88; } else { if (false) { while (a=5) return; } }" `shouldParseAs` "1 if((a<5.0)){printg;88.0;}else{if(FALSE_LIT){while(a=5.0)return;}}"
     it "Parses pretty advanced example 2" $ do
-      "if (i_can_sing) { you_can_dance = 2; var x = 7; } else print hi; while (1 != 2) {return;} {{ 1; }}" `shouldParseAs` "3 if (i_can_sing) { you_can_dance = 2.0; V DEC -> x = 7.0; } else print hi; while ((1.0 != 2.0)){ return; } { { 1.0; } }"
+      "if (i_can_sing) { you_can_dance = 2; const x = 7; } else print hi; while (1 != 2) {return;} {{ 1; }}" `shouldParseAs` "3 if (i_can_sing) { you_can_dance = 2.0; C DEC -> x = 7.0; } else print hi; while ((1.0 != 2.0)){ return; } { { 1.0; } }"

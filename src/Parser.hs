@@ -1,6 +1,7 @@
 module Parser (parse) where
 
 import AbstractSyntaxTree
+import Scanner (scanTokens)
 import Tokens
 
 {- |
@@ -58,28 +59,28 @@ parseHelper tokens@(t : ts) statementsAcc
 -}
 declaration :: [Token] -> (Stmt, [Token])
 declaration [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
-declaration tokens@(t : ts)
-  | isVar t = varDeclaration ts
+declaration tokens@(t : _)
+  | isVarOrConst t = varDeclaration tokens
   | otherwise = statement tokens
 
 {- |
   'varDeclaration' - Parses a variable declaration statement.
 
   Input:
-    - '[Token]' - Tokens to be parsed.
+    - '[Token]' - Tokens to be parsed, including CONST or VAR token.
 
   Output:
     - '(Stmt, [Token])' - The parsed variable declaration and remaining tokens.
 -}
 varDeclaration :: [Token] -> (Stmt, [Token])
 varDeclaration [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
-varDeclaration (idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN EQUAL _ _ _) : exprTokens) =
+varDeclaration ((TOKEN varOrConstT _ _ _) : idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN EQUAL _ _ _) : exprTokens) =
   let (expr, restAfterExppresion) = expression exprTokens
       result = consume restAfterExppresion SEMICOLON "Expect ';' after expression." -- TODO: fix bug here
    in case result of
-        Left restAfterConsume -> (VarDeclStmt idToken expr, restAfterConsume)
+        Left restAfterConsume -> (VarDeclStmt varOrConstT idToken expr, restAfterConsume)
         Right err -> (ErrorStmt $ ErrorExpr err, restAfterExppresion)
-varDeclaration (idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN SEMICOLON _ _ _) : rest) = (VarDeclStmt idToken EmptyExpr, rest)
+varDeclaration ((TOKEN varOrConstT _ _ _) : idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN SEMICOLON _ _ _) : rest) = (VarDeclStmt varOrConstT idToken EmptyExpr, rest)
 varDeclaration tokens@(t : _) = (ErrorStmt $ ErrorExpr $ LoxParseError ("Expect '=' or ';' after identifier, got: " ++ show t) t, tokens)
 
 {- |

@@ -289,6 +289,7 @@ buildWordFromString "super" (Pos l _) = TOKEN SUPER "super" NONE l
 buildWordFromString "this" (Pos l _) = TOKEN THIS "this" NONE l
 buildWordFromString "true" (Pos l _) = TOKEN TRUE "true" TRUE_LIT l
 buildWordFromString "var" (Pos l _) = TOKEN VAR "var" NONE l
+buildWordFromString "const" (Pos l _) = TOKEN CONST "const" NONE l
 buildWordFromString "while" (Pos l _) = TOKEN WHILE "while" NONE l
 buildWordFromString identifier (Pos l _) = TOKEN IDENTIFIER identifier (ID identifier) l
 

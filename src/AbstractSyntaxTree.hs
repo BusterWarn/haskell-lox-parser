@@ -16,7 +16,7 @@ data Stmt
   | BlockStmt [Stmt]
   | IfStmt Expr Stmt (Maybe Stmt)
   | WhileStmt Expr Stmt
-  | VarDeclStmt Token Expr
+  | VarDeclStmt TokenType Token Expr
   | ErrorStmt Expr
 
 instance Show Stmt where
@@ -30,8 +30,10 @@ instance Show Stmt where
       ++ show thenStmt
       ++ maybe "" (\e -> " else " ++ show e) elseStmt
   show (WhileStmt condition stmt) = "while (" ++ show condition ++ ")" ++ show stmt
-  show (VarDeclStmt token EmptyExpr) = "V DEC -> " ++ show token ++ ";"
-  show (VarDeclStmt token expr) = "V DEC -> " ++ show token ++ " = " ++ show expr ++ ";"
+  show (VarDeclStmt VAR token EmptyExpr) = "V DEC -> " ++ show token ++ ";"
+  show (VarDeclStmt VAR token expr) = "V DEC -> " ++ show token ++ " = " ++ show expr ++ ";"
+  show (VarDeclStmt CONST token EmptyExpr) = "C DEC -> " ++ show token ++ ";"
+  show (VarDeclStmt CONST token expr) = "C DEC -> " ++ show token ++ " = " ++ show expr ++ ";"
   show (ErrorStmt err) = show err
 
 data Expr
@@ -74,7 +76,7 @@ getErrorsFromStmt (BlockStmt stmts) = concatMap getErrorsFromStmt stmts
 getErrorsFromStmt (IfStmt condition thenBranch elseBranch) =
   getErrorsFromExpr condition ++ getErrorsFromStmt thenBranch ++ maybe [] getErrorsFromStmt elseBranch
 getErrorsFromStmt (WhileStmt condition stmt) = getErrorsFromExpr condition ++ getErrorsFromStmt stmt
-getErrorsFromStmt (VarDeclStmt _ expr) = getErrorsFromExpr expr
+getErrorsFromStmt (VarDeclStmt _ _ expr) = getErrorsFromExpr expr
 getErrorsFromStmt (ErrorStmt expr) = getErrorsFromExpr expr
 
 -- Collects all parse errors from a single expression.
