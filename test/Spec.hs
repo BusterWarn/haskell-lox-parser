@@ -5,6 +5,7 @@ import qualified Tokens
 
 import Control.Exception (evaluate)
 import Data.Char (isSpace)
+import Data.Either (fromRight, isLeft)
 import Test.Hspec
 import Tokens (TokenType (AND, BANG, BANG_EQUAL, CLASS, COMMA, DOT, ELSE, EOF, EQUAL, EQUAL_EQUAL, FALSE, FOR, FUN, GREATER, GREATER_EQUAL, IDENTIFIER, IF, LEFT_BRACE, LEFT_PAREN, LESS, LESS_EQUAL, MINUS, NIL, NUMBER, OR, PLUS, PRINT, RETURN, RIGHT_BRACE, RIGHT_PAREN, SEMICOLON, SLASH, STAR, STRING, SUPER, THIS, TRUE, VAR, WHILE))
 
@@ -21,7 +22,7 @@ tokenToLineNumber (Tokens.TOKEN _ _ _ line) = line
 removeWhitespace :: String -> String
 removeWhitespace = filter (not . isSpace)
 
--- Custom infix function for testing
+-- Custom infix function for testing parser
 shouldParseAs :: String -> String -> Expectation
 input `shouldParseAs` expected =
   let parsedStatements = Parser.parse $ Scanner.scanTokens input
@@ -29,6 +30,25 @@ input `shouldParseAs` expected =
       actualNoWhitespace = removeWhitespace actualShowString
       expectedNoWhitespace = removeWhitespace expected
    in actualNoWhitespace `shouldBe` expectedNoWhitespace
+
+-- Custom infix function for testing interpreter
+shouldInterpretAs :: String -> Either String [String] -> Expectation
+shouldInterpretAs code expectedResult =
+  let result = Interpreter.interpret code
+   in case expectedResult of
+        Left expectedError -> do
+          result `shouldSatisfy` isLeft
+        Right expectedOutput -> do
+          let actualOutput = snd $ fromRight (error "Expected Right, found Left") result
+          actualOutput `shouldBe` expectedOutput
+ where
+  fromLeft :: a -> Either a b -> a
+  fromLeft _ (Left a) = a
+  fromLeft defaultValue _ = defaultValue
+
+  fromRight :: b -> Either a b -> b
+  fromRight _ (Right b) = b
+  fromRight defaultValue _ = defaultValue
 
 tests :: Spec
 tests = do
@@ -277,52 +297,56 @@ tests = do
 
   describe "Interpret code" $ do
     it "Can interperet single num" $ do
-      snd (Interpreter.interpret "1;") `shouldBe` ["1"]
-      snd (Interpreter.interpret "2.0;") `shouldBe` ["2"]
+      "print 1;" `shouldInterpretAs` Right ["1"]
+      "print 2.0;" `shouldInterpretAs` Right ["2"]
     it "can interperet num unary -" $ do
-      snd (Interpreter.interpret "-1;") `shouldBe` ["-1"]
-      snd (Interpreter.interpret "-2.0;") `shouldBe` ["-2"]
+      "print -1;" `shouldInterpretAs` Right ["-1"]
+      "print -2.0;" `shouldInterpretAs` Right ["-2"]
     it "can interperet binary plus expression" $ do
-      snd (Interpreter.interpret "10 + 2;") `shouldBe` ["12"]
-    it "can interperet minus plus expression" $ do
-      snd (Interpreter.interpret "10 - 2;") `shouldBe` ["8"]
+      "print 10 + 2;" `shouldInterpretAs` Right ["12"]
+    it "can interperet binary minus expression" $ do
+      "print 10 -  2;" `shouldInterpretAs` Right ["8"]
     it "can interperet binary star expression" $ do
-      snd (Interpreter.interpret "10 * 2;") `shouldBe` ["20"]
+      "print 10 * 2;" `shouldInterpretAs` Right ["20"]
     it "can interperet binary slash expression" $ do
-      snd (Interpreter.interpret "10 / 2;") `shouldBe` ["5"]
+      "print 10 / 2;" `shouldInterpretAs` Right ["5"]
     it "can interperet multiple binary number operations" $ do
-      snd (Interpreter.interpret "10 * 2 - 5 / 5 + -1 * 10;") `shouldBe` ["9"]
+      "print 10 * 2 - 5 / 5 + -1 * 10;" `shouldInterpretAs` Right ["9"]
     it "can interperet simple string binary addition" $ do
-      snd (Interpreter.interpret "\"hello \" + \"world!\";") `shouldBe` ["hello world!"]
+      "print \"hello \" + \"world!\";" `shouldInterpretAs` Right ["hello world!"]
     it "can interperet multple string binary addition" $ do
-      snd (Interpreter.interpret "\"1\" + \"2\"+ \"3\"+ \"4\";") `shouldBe` ["1234"]
+      "print \"1\" + \"2\"+ \"3\"+ \"4\";" `shouldInterpretAs` Right ["1234"]
     it "can interperet simple bool literal" $ do
-      snd (Interpreter.interpret "true;") `shouldBe` ["true"]
-      snd (Interpreter.interpret "false;") `shouldBe` ["false"]
+      "print true;" `shouldInterpretAs` Right ["true"]
+      "print false;" `shouldInterpretAs` Right ["false"]
     it "can interperet simple bool literal with unary bang" $ do
-      snd (Interpreter.interpret "!true;") `shouldBe` ["false"]
-      snd (Interpreter.interpret "!false;") `shouldBe` ["true"]
+      "print !true;" `shouldInterpretAs` Right ["false"]
+      "print !false;" `shouldInterpretAs` Right ["true"]
+    it "load and evaluate simple variable" $ do
+      "var x = 5; print x;" `shouldInterpretAs` Right ["5"]
+    it "Load multiple variables" $ do
+      "var ten = 10; var seven = 7; var two = 2; print ten * two - 7;" `shouldInterpretAs` Right ["13"]
 
   describe "Interpreter will return runtime errors" $ do
     it "Returns runtime error when multiplying with muffin" $ do
-      fst (Interpreter.interpret "1 * \"muffin\";") `shouldBe` True
-      fst (Interpreter.interpret "\"muffin\" * 1;") `shouldBe` True
-      fst (Interpreter.interpret "1 * true;") `shouldBe` True
-      fst (Interpreter.interpret "false * 1;") `shouldBe` True
+      "1 * \"muffin\";" `shouldInterpretAs` Left ""
+      "\"muffin\" * 1;" `shouldInterpretAs` Left ""
+      "1 * tshouldInterpretAs;" `shouldInterpretAs` Left ""
+      "false * 1;" `shouldInterpretAs` Left ""
     it "Returns runtime error when dividing with muffin" $ do
-      fst (Interpreter.interpret "1 / \"muffin\";") `shouldBe` True
-      fst (Interpreter.interpret "\"muffin\" / 1;") `shouldBe` True
-      fst (Interpreter.interpret "1 / true;") `shouldBe` True
-      fst (Interpreter.interpret "false / 1;") `shouldBe` True
+      "1 / \"muffin\";" `shouldInterpretAs` Left ""
+      "\"muffin\" / 1;" `shouldInterpretAs` Left ""
+      "1 / true;" `shouldInterpretAs` Left ""
+      "false / 1;" `shouldInterpretAs` Left ""
     it "Returns runtime error when subtracting with muffin" $ do
-      fst (Interpreter.interpret "1 - \"muffin\";") `shouldBe` True
-      fst (Interpreter.interpret "\"muffin\" - 1;") `shouldBe` True
-      fst (Interpreter.interpret "1 - true;") `shouldBe` True
-      fst (Interpreter.interpret "false - 1;") `shouldBe` True
+      "1 - \"muffin\";" `shouldInterpretAs` Left ""
+      "\"muffin\" - 1;" `shouldInterpretAs` Left ""
+      "1 - true;" `shouldInterpretAs` Left ""
+      "false - 1;" `shouldInterpretAs` Left ""
     it "Returns runtime error when adding number with muffin" $ do
-      fst (Interpreter.interpret "1 + \"muffin\";") `shouldBe` True
-      fst (Interpreter.interpret "\"muffin\" + 1;") `shouldBe` True
-      fst (Interpreter.interpret "1 + true;") `shouldBe` True
-      fst (Interpreter.interpret "false + 1;") `shouldBe` True
+      "1 + \"muffin\";" `shouldInterpretAs` Left ""
+      "\"muffin\" + 1;" `shouldInterpretAs` Left ""
+      "1 + true;" `shouldInterpretAs` Left ""
+      "false + 1;" `shouldInterpretAs` Left ""
     it "Returns runtime error when dividing by 0" $ do
-      fst (Interpreter.interpret "1 / 0;") `shouldBe` True
+      "1 / 0;" `shouldInterpretAs` Left ""
