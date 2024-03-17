@@ -1,9 +1,12 @@
+import qualified Interpereter
 import qualified Parser
 import qualified Scanner
 import qualified Tokens
 
 import Control.Exception (evaluate)
 import Data.Char (isSpace)
+import Interpereter (interperet)
+import qualified Interpereter
 import Test.Hspec
 import Tokens (TokenType (AND, BANG, BANG_EQUAL, CLASS, COMMA, DOT, ELSE, EOF, EQUAL, EQUAL_EQUAL, FALSE, FOR, FUN, GREATER, GREATER_EQUAL, IDENTIFIER, IF, LEFT_BRACE, LEFT_PAREN, LESS, LESS_EQUAL, MINUS, NIL, NUMBER, OR, PLUS, PRINT, RETURN, RIGHT_BRACE, RIGHT_PAREN, SEMICOLON, SLASH, STAR, STRING, SUPER, THIS, TRUE, VAR, WHILE))
 
@@ -273,3 +276,29 @@ tests = do
       "if ( a < 5 ) { print g; 88; } else { if (false) { while (a=5) return; } }" `shouldParseAs` "1 if((a<5.0)){printg;88.0;}else{if(FALSE_LIT){while(a=5.0)return;}}"
     it "Parses pretty advanced example 2" $ do
       "if (i_can_sing) { you_can_dance = 2; const x = 7; } else print hi; while (1 != 2) {return;} {{ 1; }}" `shouldParseAs` "3 if (i_can_sing) { you_can_dance = 2.0; C DEC -> x = 7.0; } else print hi; while ((1.0 != 2.0)){ return; } { { 1.0; } }"
+
+  describe "Interperet code" $ do
+    it "Can interperet single num" $ do
+      Interpereter.interperet "1;" `shouldBe` ["1"]
+      Interpereter.interperet "2.0;" `shouldBe` ["2"]
+    it "Can interperet num unary -" $ do
+      Interpereter.interperet "-1;" `shouldBe` ["-1"]
+      Interpereter.interperet "-2.0;" `shouldBe` ["-2"]
+    it "Can interperet binary plus expression" $ do
+      Interpereter.interperet "10 + 2;" `shouldBe` ["12"]
+    it "Can interperet minus plus expression" $ do
+      Interpereter.interperet "10 - 2;" `shouldBe` ["8"]
+    it "Can interperet binary star expression" $ do
+      Interpereter.interperet "10 * 2;" `shouldBe` ["20"]
+    it "Can interperet binary slash expression" $ do
+      Interpereter.interperet "10 / 2;" `shouldBe` ["5"]
+    it "Can interperet multiple binary number operations" $ do
+      Interpereter.interperet "10 * 2 - 5 / 5 + -1 * 10;" `shouldBe` ["9"]
+    it "Can interperet simple string binary addition" $ do
+      Interpereter.interperet "\"Hello \" + \"World!\";" `shouldBe` ["Hello World!"]
+    it "Can interperet simple bool literal" $ do
+      Interpereter.interperet "true;" `shouldBe` ["true"]
+      Interpereter.interperet "false;" `shouldBe` ["false"]
+    it "Can interperet simple bool literal with unary bang" $ do
+      Interpereter.interperet "!true;" `shouldBe` ["false"]
+      Interpereter.interperet "!false;" `shouldBe` ["true"]
