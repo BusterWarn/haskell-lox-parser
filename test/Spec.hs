@@ -307,14 +307,22 @@ tests = do
     it "Returns runtime error when multiplying with muffin" $ do
       fst (Interpreter.interpret "1 * \"muffin\";") `shouldBe` True
       fst (Interpreter.interpret "\"muffin\" * 1;") `shouldBe` True
+      fst (Interpreter.interpret "1 * true;") `shouldBe` True
+      fst (Interpreter.interpret "false * 1;") `shouldBe` True
     it "Returns runtime error when dividing with muffin" $ do
       fst (Interpreter.interpret "1 / \"muffin\";") `shouldBe` True
       fst (Interpreter.interpret "\"muffin\" / 1;") `shouldBe` True
+      fst (Interpreter.interpret "1 / true;") `shouldBe` True
+      fst (Interpreter.interpret "false / 1;") `shouldBe` True
     it "Returns runtime error when subtracting with muffin" $ do
       fst (Interpreter.interpret "1 - \"muffin\";") `shouldBe` True
       fst (Interpreter.interpret "\"muffin\" - 1;") `shouldBe` True
+      fst (Interpreter.interpret "1 - true;") `shouldBe` True
+      fst (Interpreter.interpret "false - 1;") `shouldBe` True
     it "Returns runtime error when adding number with muffin" $ do
       fst (Interpreter.interpret "1 + \"muffin\";") `shouldBe` True
       fst (Interpreter.interpret "\"muffin\" + 1;") `shouldBe` True
+      fst (Interpreter.interpret "1 + true;") `shouldBe` True
+      fst (Interpreter.interpret "false + 1;") `shouldBe` True
     it "Returns runtime error when dividing by 0" $ do
       fst (Interpreter.interpret "1 / 0;") `shouldBe` True
