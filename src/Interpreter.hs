@@ -28,28 +28,32 @@ data LoxRuntimeError = LoxRuntimeError String deriving (Show, Eq)
 
 data Mutability = Mutable | Immutable deriving (Eq, Show)
 type Variable = (Maybe LoxValue, Mutability)
-type Environment = Map.Map String Variable
+type Environment = [Map.Map String Variable]
 
 -- Declare a new variable or redeclare an existing one
 define :: String -> Maybe LoxValue -> TokenType -> Environment -> Environment
-define name value CONST = Map.insert name (value, Immutable)
-define name value _ = Map.insert name (value, Mutable)
+define name value CONST (current : outer) = Map.insert name (value, Immutable) current : outer
+define name value _ (current : outer) = Map.insert name (value, Mutable) current : outer
 
 -- Assign value to already existing variable.
 assign :: String -> LoxValue -> Environment -> Either LoxRuntimeError Environment
-assign name value env =
-  case Map.lookup name env of
-    Just (_, Mutable) -> Right $ Map.insert name (Just value, Mutable) env
-    Just (Nothing, Immutable) -> Right $ Map.insert name (Just value, Immutable) env
+assign name _ [] = Left $ LoxRuntimeError $ "Undefined variable '" ++ name ++ "'."
+assign name value (current : outer) =
+  case Map.lookup name current of
+    Just (_, Mutable) -> Right $ Map.insert name (Just value, Mutable) current : outer
+    Just (Nothing, Immutable) -> Right $ Map.insert name (Just value, Immutable) current : outer
     Just (Just _, Immutable) -> Left $ LoxRuntimeError $ "Attempted to reassign constant '" ++ name ++ "'."
-    Nothing -> Left $ LoxRuntimeError $ "Undefined variable '" ++ name ++ "'."
+    Nothing -> do
+      newOuter <- assign name value outer
+      Right $ current : newOuter
 
 -- Get a variable's value, returning Either LoxRuntimeError LoxValue
 getVar :: String -> Environment -> Either LoxRuntimeError Variable
-getVar name env =
-  case Map.lookup name env of
+getVar name [] = Left $ LoxRuntimeError ("Undefined variable '" ++ name ++ "'.")
+getVar name (current : outer) =
+  case Map.lookup name current of
     Just variable -> Right variable
-    Nothing -> Left $ LoxRuntimeError ("Undefined variable '" ++ name ++ "'.")
+    Nothing -> getVar name outer
 
 {- |
   'interpret' - Interprets Lox language code.
@@ -63,7 +67,7 @@ getVar name env =
 interpret :: String -> Either LoxRuntimeError (Environment, [String])
 interpret code =
   let (Ast stmts) = parse . scanTokens $ code
-   in interpretStmts stmts Map.empty
+   in interpretStmts stmts [Map.empty]
 
 {- |
   'interpretStmts' - Recursively evaluates a list of statements, updating the environment.
@@ -92,7 +96,12 @@ evaluateStmt (ExprStmt expr) env = do
 evaluateStmt (PrintStmt expr) env = do
   (newEnv, printResult) <- evaluateExpr expr env
   Right (newEnv, [show printResult])
-evaluateStmt (BlockStmt stmts) env = undefined
+evaluateStmt (BlockStmt stmts) env = evaluateBlockStmts stmts (Map.empty : env) []
+ where
+  evaluateBlockStmts [] tempEnv acc = Right (tail tempEnv, acc)
+  evaluateBlockStmts (s : ss) tempEnv acc = do
+    (newy, newStrings) <- evaluateStmt s tempEnv
+    evaluateBlockStmts ss newy (acc ++ newStrings)
 evaluateStmt (IfStmt expr stmt maybeStmt) env = undefined
 evaluateStmt (WhileStmt expr stmt) env = undefined
 evaluateStmt (VarDeclStmt tokenType (TOKEN _ _ (ID name) _) EmptyExpr) env = do

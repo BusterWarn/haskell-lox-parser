@@ -372,3 +372,50 @@ tests = do
     it "Cannot assign a value to an already assigned constant varaible" $ do
       "const x = 42; x = 43;" `shouldInterpretAs` Left ""
       "const x; x = 1; x = 2;" `shouldInterpretAs` Left ""
+
+  describe "Interpret block scoping" $ do
+    it "Variables declared inside a block are not accessible outside" $ do
+      "var x = \"outside\"; { var x = \"inside\"; } print x;" `shouldInterpretAs` Right ["outside"]
+    it "Enclosed variables are accessible inside a block" $ do
+      "var x = \"outside\"; { print x; }" `shouldInterpretAs` Right ["outside"]
+    it "Can declare variables with the same name in nested blocks" $ do
+      "var x = \"outside\"; { var x = \"inside\"; print x; } print x;" `shouldInterpretAs` Right ["inside", "outside"]
+    it "Updates to variables in the outer scope are visible inside a block" $ do
+      "var x = \"outside\"; { x = \"updated\"; } print x;" `shouldInterpretAs` Right ["updated"]
+    it "Nested blocks can access and modify outer scope variables" $ do
+      "var x = \"global\"; { var x = \"outer\"; { x = \"inner\"; } print x; } print x;" `shouldInterpretAs` Right ["inner", "global"]
+    it "Updates to variables in a block do not affect outer scope variables with the same name" $ do
+      "var x = \"outer\"; { var x = \"inner\"; x = \"updated\"; print x; } print x;" `shouldInterpretAs` Right ["updated", "outer"]
+    it "Variables can shadow outer scope variables" $ do
+      "var x = \"outer\"; { var x = x; print x; }" `shouldInterpretAs` Right ["outer"]
+    it "Blocks can declare local variables without affecting the global scope" $ do
+      "{ var x = \"local\"; } print x;" `shouldInterpretAs` Left ""
+    it "Can use variables declared in the same block" $ do
+      "{ var x = 10; var y = x + 5; print y; }" `shouldInterpretAs` Right ["15"]
+    it "Can redeclare a global variable inside a block" $ do
+      "var x = 5; { var x = 10; print x; } print x;" `shouldInterpretAs` Right ["10", "5"]
+    -- from https://craftinginterpreters.com/statements-and-state.html#block-syntax-and-semantics
+    it "correctly handles variable shadowing and scoping in nested blocks" $ do
+      let code =
+            unlines
+              [ "var a = \"global a\";"
+              , "var b = \"global b\";"
+              , "var c = \"global c\";"
+              , "{"
+              , "  var a = \"outer a\";"
+              , "  var b = \"outer b\";"
+              , "  {"
+              , "    var a = \"inner a\";"
+              , "    print a;"
+              , "    print b;"
+              , "    print c;"
+              , "  }"
+              , "  print a;"
+              , "  print b;"
+              , "  print c;"
+              , "}"
+              , "print a;"
+              , "print b;"
+              , "print c;"
+              ]
+      code `shouldInterpretAs` Right ["inner a", "outer b", "global c", "outer a", "outer b", "global c", "global a", "global b", "global c"]
