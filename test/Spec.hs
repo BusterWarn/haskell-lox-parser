@@ -326,6 +326,8 @@ tests = do
       "var x = 5; print x;" `shouldInterpretAs` Right ["5"]
     it "Load multiple variables" $ do
       "var ten = 10; var seven = 7; var two = 2; print ten * two - 7;" `shouldInterpretAs` Right ["13"]
+    it "Load multiple variables referencing each other" $ do
+      "var x = 5; var y = x; var z = y; print z;" `shouldInterpretAs` Right ["5"]
 
   describe "Interpreter will return runtime errors" $ do
     it "Returns runtime error when multiplying with muffin" $ do
