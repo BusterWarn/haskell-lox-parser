@@ -6,6 +6,7 @@ import Parser (parse)
 import Scanner (scanTokens)
 import Tokens
 
+import Control.Exception (evaluate)
 import qualified Data.Map as Map
 
 data LoxValue
@@ -26,19 +27,28 @@ instance Show LoxValue where
 data LoxRuntimeError = LoxRuntimeError String deriving (Show, Eq)
 
 data Mutability = Mutable | Immutable deriving (Eq, Show)
-type Variable = (LoxValue, Mutability)
+type Variable = (Maybe LoxValue, Mutability)
 type Environment = Map.Map String Variable
 
--- Define a new variable or update an existing one
-define :: String -> LoxValue -> TokenType -> Environment -> Environment
+-- Declare a new variable or redeclare an existing one
+define :: String -> Maybe LoxValue -> TokenType -> Environment -> Environment
 define name value CONST = Map.insert name (value, Immutable)
 define name value _ = Map.insert name (value, Mutable)
 
+-- Assign value to already existing variable.
+assign :: String -> LoxValue -> Environment -> Either LoxRuntimeError Environment
+assign name value env =
+  case Map.lookup name env of
+    Just (_, Mutable) -> Right $ Map.insert name (Just value, Mutable) env
+    Just (Nothing, Immutable) -> Right $ Map.insert name (Just value, Immutable) env
+    Just (Just _, Immutable) -> Left $ LoxRuntimeError $ "Attempted to reassign constant '" ++ name ++ "'."
+    Nothing -> Left $ LoxRuntimeError $ "Undefined variable '" ++ name ++ "'."
+
 -- Get a variable's value, returning Either LoxRuntimeError LoxValue
-getVar :: String -> Environment -> Either LoxRuntimeError LoxValue
+getVar :: String -> Environment -> Either LoxRuntimeError Variable
 getVar name env =
   case Map.lookup name env of
-    Just (value, _) -> Right value
+    Just variable -> Right variable
     Nothing -> Left $ LoxRuntimeError ("Undefined variable '" ++ name ++ "'.")
 
 {- |
@@ -77,55 +87,66 @@ interpretStmts (stmt : rest) env =
 
 evaluateStmt :: Stmt -> Environment -> Either LoxRuntimeError (Environment, [String])
 evaluateStmt (ExprStmt expr) env = do
-  _ <- evaluateExpr expr env
-  Right (env, [])
+  (newEnv, _) <- evaluateExpr expr env
+  Right (newEnv, [])
 evaluateStmt (PrintStmt expr) env = do
-  printResult <- evaluateExpr expr env
-  Right (env, [show printResult])
+  (newEnv, printResult) <- evaluateExpr expr env
+  Right (newEnv, [show printResult])
 evaluateStmt (BlockStmt stmts) env = undefined
 evaluateStmt (IfStmt expr stmt maybeStmt) env = undefined
 evaluateStmt (WhileStmt expr stmt) env = undefined
+evaluateStmt (VarDeclStmt tokenType (TOKEN _ _ (ID name) _) EmptyExpr) env = do
+  Right (define name Nothing tokenType env, [])
 evaluateStmt (VarDeclStmt tokenType (TOKEN _ _ (ID name) _) expr) env = do
-  val <- evaluateExpr expr env
-  Right (define name val tokenType env, [])
+  (newEnv, val) <- evaluateExpr expr env
+  Right (define name (Just val) tokenType newEnv, [])
 evaluateStmt (ErrorStmt expr) env = undefined
 
-evaluateExpr :: Expr -> Environment -> Either LoxRuntimeError LoxValue
+evaluateExpr :: Expr -> Environment -> Either LoxRuntimeError (Environment, LoxValue)
 evaluateExpr (GroupingExpr expr) env = evaluateExpr expr env
 evaluateExpr (LiteralExpr (TOKEN _ _ literal _)) env =
   case literal of
-    NUM value -> Right $ LoxNumber value
-    STR value -> Right $ LoxString value
-    TRUE_LIT -> Right $ LoxBool True
-    FALSE_LIT -> Right $ LoxBool False
-    NIL_LIT -> Right LoxNil
-    ID value -> getVar value env
+    NUM value -> Right (env, LoxNumber value)
+    STR value -> Right (env, LoxString value)
+    TRUE_LIT -> Right (env, LoxBool True)
+    FALSE_LIT -> Right (env, LoxBool False)
+    NIL_LIT -> Right (env, LoxNil)
+    ID name -> do
+      (result, _) <- getVar name env
+      case result of
+        Just value -> Right (env, value)
+        Nothing -> Left $ LoxRuntimeError $ "Tried to evaluate variable without assignment: '" ++ name ++ "'"
     _ -> Left $ LoxRuntimeError $ "Unknown literal: " ++ show literal
 evaluateExpr (UnaryExpr (TOKEN unary _ _ _) expr) env = do
-  right <- evaluateExpr expr env
+  (envAfterRight, right) <- evaluateExpr expr env
   case (unary, right) of
-    (MINUS, LoxNumber r) -> Right $ LoxNumber (-r)
-    (BANG, LoxBool r) -> Right $ LoxBool (not r)
+    (MINUS, LoxNumber r) -> Right (envAfterRight, LoxNumber (-r))
+    (BANG, LoxBool r) -> Right (envAfterRight, LoxBool (not r))
 evaluateExpr (BinaryExpr leftExpr token rightExpr) env = do
-  leftVal <- evaluateExpr leftExpr env
-  rightVal <- evaluateExpr rightExpr env
+  (envAfterLeft, leftVal) <- evaluateExpr leftExpr env
+  (envAfterRight, rightVal) <- evaluateExpr rightExpr envAfterLeft
   case token of
     (TOKEN STAR _ _ _) -> case (leftVal, rightVal) of
-      (LoxNumber l, LoxNumber r) -> Right $ LoxNumber (l * r)
+      (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxNumber (l * r))
       _ -> Left $ LoxRuntimeError $ "Binary operand '*' requires number on left and right side. Actual: " ++ show leftVal ++ " * " ++ show rightVal
     (TOKEN SLASH _ _ _) -> case (leftVal, rightVal) of
       (LoxNumber _, LoxNumber 0) -> Left $ LoxRuntimeError $ "Division by zero: " ++ show leftVal ++ " / " ++ show rightVal
-      (LoxNumber l, LoxNumber r) -> Right $ LoxNumber (l / r)
+      (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxNumber (l / r))
       _ -> Left $ LoxRuntimeError $ "Binary operand '/' requires number on left and right side. Actual: " ++ show leftVal ++ " / " ++ show rightVal
     (TOKEN MINUS _ _ _) -> case (leftVal, rightVal) of
-      (LoxNumber l, LoxNumber r) -> Right $ LoxNumber (l - r)
+      (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxNumber (l - r))
       _ -> Left $ LoxRuntimeError $ "Binary operand '-' requires number on left and right side. Actual: " ++ show leftVal ++ " - " ++ show rightVal
     (TOKEN PLUS _ _ _) -> case (leftVal, rightVal) of
-      (LoxNumber l, LoxNumber r) -> Right $ LoxNumber (l + r)
-      (LoxString l, LoxString r) -> Right $ LoxString (r ++ l)
-      (LoxNumber l, _) -> Left $ LoxRuntimeError $ "Binary operand '+' requires number on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
-      (_, LoxNumber r) -> Left $ LoxRuntimeError $ "Binary operand '+' requires number on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
-      (LoxString l, _) -> Left $ LoxRuntimeError $ "Binary operand '+' requires string on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
-      (_, LoxString r) -> Left $ LoxRuntimeError $ "Binary operand '+' requires string on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
+      (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxNumber (l + r))
+      (LoxString l, LoxString r) -> Right (envAfterRight, LoxString (r ++ l))
+      (LoxNumber _, _) -> Left $ LoxRuntimeError $ "Binary operand '+' requires number on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
+      (_, LoxNumber _) -> Left $ LoxRuntimeError $ "Binary operand '+' requires number on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
+      (LoxString _, _) -> Left $ LoxRuntimeError $ "Binary operand '+' requires string on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
+      (_, LoxString _) -> Left $ LoxRuntimeError $ "Binary operand '+' requires string on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
       _ -> Left $ LoxRuntimeError $ "Binary operand '+' does not support: " ++ show leftVal ++ " + " ++ show rightVal
     _ -> Left $ LoxRuntimeError "Unsupported binary operator."
+evaluateExpr (AssignExpr (TOKEN _ _ (ID name) _) expr) env = do
+  (envAfterEval, newValue) <- evaluateExpr expr env
+  envAfterAssign <- assign name newValue envAfterEval
+  Right (envAfterAssign, newValue)
+evaluateExpr EmptyExpr env = Right (env, LoxNil)

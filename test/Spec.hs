@@ -322,12 +322,6 @@ tests = do
     it "can interperet simple bool literal with unary bang" $ do
       "print !true;" `shouldInterpretAs` Right ["false"]
       "print !false;" `shouldInterpretAs` Right ["true"]
-    it "load and evaluate simple variable" $ do
-      "var x = 5; print x;" `shouldInterpretAs` Right ["5"]
-    it "Load multiple variables" $ do
-      "var ten = 10; var seven = 7; var two = 2; print ten * two - 7;" `shouldInterpretAs` Right ["13"]
-    it "Load multiple variables referencing each other" $ do
-      "var x = 5; var y = x; var z = y; print z;" `shouldInterpretAs` Right ["5"]
 
   describe "Interpreter will return runtime errors" $ do
     it "Returns runtime error when multiplying with muffin" $ do
@@ -352,3 +346,29 @@ tests = do
       "false + 1;" `shouldInterpretAs` Left ""
     it "Returns runtime error when dividing by 0" $ do
       "1 / 0;" `shouldInterpretAs` Left ""
+
+    it "load and evaluate simple variable" $ do
+      "var x = 5; print x;" `shouldInterpretAs` Right ["5"]
+      "const x = 5; print x;" `shouldInterpretAs` Right ["5"]
+    it "Load multiple variables" $ do
+      "var ten = 10; const seven = 7; var two = 2; print ten * two - 7;" `shouldInterpretAs` Right ["13"]
+    it "Load multiple variables referencing each other" $ do
+      "var x = 5; var y = x; var z = y; print z;" `shouldInterpretAs` Right ["5"]
+    it "Can redeclare variables" $ do
+      "var x = 5; var x = x * 10; print x;" `shouldInterpretAs` Right ["50"]
+    it "Can redeclare constant variables" $ do
+      "const x = 5; const x = x * 10; print x;" `shouldInterpretAs` Right ["50"]
+
+    it "Can first declare and then assign variables" $ do
+      "var x; x = 42; print x;" `shouldInterpretAs` Right ["42"]
+      "const x; x = 42; print x;" `shouldInterpretAs` Right ["42"]
+    it "Can redaclare variable multiple times" $ do
+      "var x = 1; print x; x = 2; print x; x = x + 1; print x;" `shouldInterpretAs` Right ["1", "2", "3"]
+    it "Can reassign different types to a variable" $ do
+      "var x = 5; print x; x = \"string\"; print x; x = true;  print x; x = nil; print x;" `shouldInterpretAs` Right ["5", "string", "true", "nil"]
+
+    it "Cannot assign value from unassigned variable." $ do
+      "var x; var y = x;" `shouldInterpretAs` Left ""
+    it "Cannot assign a value to an already assigned constant varaible" $ do
+      "const x = 42; x = 43;" `shouldInterpretAs` Left ""
+      "const x; x = 1; x = 2;" `shouldInterpretAs` Left ""
