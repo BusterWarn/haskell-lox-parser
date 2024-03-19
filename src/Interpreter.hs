@@ -112,7 +112,9 @@ evaluateStmt (VarDeclStmt tokenType (TOKEN _ _ (ID name) _) expr) env = do
 evaluateStmt (ErrorStmt expr) env = undefined
 
 evaluateExpr :: Expr -> Environment -> Either LoxRuntimeError (Environment, LoxValue)
+-- GroupingExpr
 evaluateExpr (GroupingExpr expr) env = evaluateExpr expr env
+-- LiteralExpr
 evaluateExpr (LiteralExpr (TOKEN _ _ literal _)) env =
   case literal of
     NUM value -> Right (env, LoxNumber value)
@@ -126,11 +128,13 @@ evaluateExpr (LiteralExpr (TOKEN _ _ literal _)) env =
         Just value -> Right (env, value)
         Nothing -> Left $ LoxRuntimeError $ "Tried to evaluate variable without assignment: '" ++ name ++ "'"
     _ -> Left $ LoxRuntimeError $ "Unknown literal: " ++ show literal
+-- UnaryExpr
 evaluateExpr (UnaryExpr (TOKEN unary _ _ _) expr) env = do
   (envAfterRight, right) <- evaluateExpr expr env
   case (unary, right) of
     (MINUS, LoxNumber r) -> Right (envAfterRight, LoxNumber (-r))
-    (BANG, LoxBool r) -> Right (envAfterRight, LoxBool (not r))
+    (BANG, _) -> Right (envAfterRight, LoxBool . not $ isTruthy right)
+-- BinaryExpr
 evaluateExpr (BinaryExpr leftExpr token rightExpr) env = do
   (envAfterLeft, leftVal) <- evaluateExpr leftExpr env
   (envAfterRight, rightVal) <- evaluateExpr rightExpr envAfterLeft
@@ -153,9 +157,30 @@ evaluateExpr (BinaryExpr leftExpr token rightExpr) env = do
       (LoxString _, _) -> Left $ LoxRuntimeError $ "Binary operand '+' requires string on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
       (_, LoxString _) -> Left $ LoxRuntimeError $ "Binary operand '+' requires string on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
       _ -> Left $ LoxRuntimeError $ "Binary operand '+' does not support: " ++ show leftVal ++ " + " ++ show rightVal
+    (TOKEN EQUAL_EQUAL _ _ _) -> Right (envAfterRight, LoxBool (leftVal == rightVal))
+    (TOKEN BANG_EQUAL _ _ _) -> Right (envAfterRight, LoxBool (leftVal /= rightVal))
+    (TOKEN GREATER _ _ _) -> case (leftVal, rightVal) of
+      (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxBool (l > r))
+      _ -> Left $ LoxRuntimeError $ "Binary operand '>' requires numbers on left and right side. Actual: " ++ show leftVal ++ " > " ++ show rightVal
+    (TOKEN GREATER_EQUAL _ _ _) -> case (leftVal, rightVal) of
+      (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxBool (l >= r))
+      _ -> Left $ LoxRuntimeError $ "Binary operand '>=' requires numbers on left and right side. Actual: " ++ show leftVal ++ " >= " ++ show rightVal
+    (TOKEN LESS _ _ _) -> case (leftVal, rightVal) of
+      (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxBool (l < r))
+      _ -> Left $ LoxRuntimeError $ "Binary operand '<' requires numbers on left and right side. Actual: " ++ show leftVal ++ " < " ++ show rightVal
+    (TOKEN LESS_EQUAL _ _ _) -> case (leftVal, rightVal) of
+      (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxBool (l <= r))
+      _ -> Left $ LoxRuntimeError $ "Binary operand '<=' requires numbers on left and right side. Actual: " ++ show leftVal ++ " <= " ++ show rightVal
     _ -> Left $ LoxRuntimeError "Unsupported binary operator."
+-- AssignExpr
 evaluateExpr (AssignExpr (TOKEN _ _ (ID name) _) expr) env = do
   (envAfterEval, newValue) <- evaluateExpr expr env
   envAfterAssign <- assign name newValue envAfterEval
   Right (envAfterAssign, newValue)
+-- EmptyExpr TODO: Not sure if this is correct
 evaluateExpr EmptyExpr env = Right (env, LoxNil)
+
+isTruthy :: LoxValue -> Bool
+isTruthy LoxNil = False
+isTruthy (LoxBool theTruth) = theTruth
+isTruthy _ = True

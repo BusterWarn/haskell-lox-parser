@@ -295,7 +295,7 @@ tests = do
     it "Parses pretty advanced example 2" $ do
       "if (i_can_sing) { you_can_dance = 2; const x = 7; } else print hi; while (1 != 2) {return;} {{ 1; }}" `shouldParseAs` "3 if (i_can_sing) { you_can_dance = 2.0; C DEC -> x = 7.0; } else print hi; while ((1.0 != 2.0)){ return; } { { 1.0; } }"
 
-  describe "Interpret code" $ do
+  describe "Interpret simple calculations" $ do
     it "Can interperet single num" $ do
       "print 1;" `shouldInterpretAs` Right ["1"]
       "print 2.0;" `shouldInterpretAs` Right ["2"]
@@ -316,6 +316,8 @@ tests = do
       "print \"hello \" + \"world!\";" `shouldInterpretAs` Right ["hello world!"]
     it "can interperet multple string binary addition" $ do
       "print \"1\" + \"2\"+ \"3\"+ \"4\";" `shouldInterpretAs` Right ["1234"]
+
+  describe "Interpret the real unary TRUTH" $ do
     it "can interperet simple bool literal" $ do
       "print true;" `shouldInterpretAs` Right ["true"]
       "print false;" `shouldInterpretAs` Right ["false"]
@@ -323,7 +325,82 @@ tests = do
       "print !true;" `shouldInterpretAs` Right ["false"]
       "print !false;" `shouldInterpretAs` Right ["true"]
 
-  describe "Interpreter will return runtime errors" $ do
+  it "Correctly evaluates truthiness of various values" $ do
+    "print !nil;" `shouldInterpretAs` Right ["true"]
+    "print !false;" `shouldInterpretAs` Right ["true"]
+    "print !0;" `shouldInterpretAs` Right ["false"]
+    "print !1;" `shouldInterpretAs` Right ["false"]
+    "print !\"\";" `shouldInterpretAs` Right ["false"]
+    "print !\"hello\";" `shouldInterpretAs` Right ["false"]
+
+  describe "Interpret the real binary TRUTH" $ do
+    it "Correctly evaluates '==' for equality" $ do
+      "print 1 == 1;" `shouldInterpretAs` Right ["true"]
+      "print 1 == 2;" `shouldInterpretAs` Right ["false"]
+      "print \"hello\" == \"hello\";" `shouldInterpretAs` Right ["true"]
+      "print \"hello\" == \"world\";" `shouldInterpretAs` Right ["false"]
+      "print true == true;" `shouldInterpretAs` Right ["true"]
+      "print true == false;" `shouldInterpretAs` Right ["false"]
+      "print !\"hi\" == false;" `shouldInterpretAs` Right ["true"]
+      "print nil == nil;" `shouldInterpretAs` Right ["true"]
+
+    it "Correctly evaluates '!=' for inequality" $ do
+      "print 1 != 1;" `shouldInterpretAs` Right ["false"]
+      "print 1 != 2;" `shouldInterpretAs` Right ["true"]
+      "print \"hello\" != \"hello\";" `shouldInterpretAs` Right ["false"]
+      "print \"hello\" != \"world\";" `shouldInterpretAs` Right ["true"]
+      "print true != true;" `shouldInterpretAs` Right ["false"]
+      "print true != false;" `shouldInterpretAs` Right ["true"]
+      "print !\"hi\" != false;" `shouldInterpretAs` Right ["false"]
+      "print nil != nil;" `shouldInterpretAs` Right ["false"]
+
+    it "Correctly evaluates '>' for greater than" $ do
+      "print 5 > 3;" `shouldInterpretAs` Right ["true"]
+      "print 2 > 2;" `shouldInterpretAs` Right ["false"]
+      "print -5 > -3;" `shouldInterpretAs` Right ["false"]
+
+    it "Correctly evaluates '>=' for greater than or equal to" $ do
+      "print 5 >= 5;" `shouldInterpretAs` Right ["true"]
+      "print 4 >= 5;" `shouldInterpretAs` Right ["false"]
+      "print -5 >= -5;" `shouldInterpretAs` Right ["true"]
+
+    it "Correctly evaluates '<' for less than" $ do
+      "print 3 < 5;" `shouldInterpretAs` Right ["true"]
+      "print 5 < 5;" `shouldInterpretAs` Right ["false"]
+      "print -5 < -3;" `shouldInterpretAs` Right ["true"]
+
+    it "Correctly evaluates '<=' for less than or equal to" $ do
+      "print 5 <= 5;" `shouldInterpretAs` Right ["true"]
+      "print 6 <= 5;" `shouldInterpretAs` Right ["false"]
+      "print -5 <= -5;" `shouldInterpretAs` Right ["true"]
+
+    it "Correctly encounters runtime errors when trying to compare less / greater with non numbers" $ do
+      "1 < \"hi\";" `shouldInterpretAs` Left ""
+      "1 < nil;" `shouldInterpretAs` Left ""
+      "1 < true;" `shouldInterpretAs` Left ""
+      "1 <= \"hi\";" `shouldInterpretAs` Left ""
+      "1 <= nil;" `shouldInterpretAs` Left ""
+      "1 <= true;" `shouldInterpretAs` Left ""
+      "1 > \"hi\";" `shouldInterpretAs` Left ""
+      "1 > nil;" `shouldInterpretAs` Left ""
+      "1 > true;" `shouldInterpretAs` Left ""
+      "1 >= \"hi\";" `shouldInterpretAs` Left ""
+      "1 >= nil;" `shouldInterpretAs` Left ""
+      "1 >= true;" `shouldInterpretAs` Left ""
+      "\"hi\" < 1;" `shouldInterpretAs` Left ""
+      "nil < 1;" `shouldInterpretAs` Left ""
+      "true < 1;" `shouldInterpretAs` Left ""
+      "\"hi\" <= 1;" `shouldInterpretAs` Left ""
+      "nil <= 1;" `shouldInterpretAs` Left ""
+      "true <= 1;" `shouldInterpretAs` Left ""
+      "\"hi\" > 1;" `shouldInterpretAs` Left ""
+      "nil > 1;" `shouldInterpretAs` Left ""
+      "true > 1;" `shouldInterpretAs` Left ""
+      "\"hi\" >= 1;" `shouldInterpretAs` Left ""
+      "nil >= 1;" `shouldInterpretAs` Left ""
+      "true >= 1;" `shouldInterpretAs` Left ""
+
+  describe "Interpreter will return runtime errors for binary number expressions" $ do
     it "Returns runtime error when multiplying with muffin" $ do
       "1 * \"muffin\";" `shouldInterpretAs` Left ""
       "\"muffin\" * 1;" `shouldInterpretAs` Left ""
@@ -347,6 +424,7 @@ tests = do
     it "Returns runtime error when dividing by 0" $ do
       "1 / 0;" `shouldInterpretAs` Left ""
 
+  describe "Interpreter can handle variables and assignments" $ do
     it "load and evaluate simple variable" $ do
       "var x = 5; print x;" `shouldInterpretAs` Right ["5"]
       "const x = 5; print x;" `shouldInterpretAs` Right ["5"]
