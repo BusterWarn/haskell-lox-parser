@@ -497,3 +497,25 @@ tests = do
               , "print c;"
               ]
       code `shouldInterpretAs` Right ["inner a", "outer b", "global c", "outer a", "outer b", "global c", "global a", "global b", "global c"]
+
+  describe "Interpret logical operators with block scoping" $ do
+    it "Short-circuits `or` without evaluating right side in a block" $ do
+      "var a = 0; true or (a = 1); print a;" `shouldInterpretAs` Right ["0"]
+    it "Evaluates right side of `or` when left side is false" $ do
+      "var a = 0; false or (a = 1); print a;" `shouldInterpretAs` Right ["1"]
+    it "Short-circuits `and` without evaluating right side in a block" $ do
+      "var a = 0; false and (a = 1); print a;" `shouldInterpretAs` Right ["0"]
+    it "Evaluates right side of `and` when left side is true" $ do
+      "var a = 0; true and (a = 1); print a;" `shouldInterpretAs` Right ["1"]
+    it "Nested blocks evaluate `or` correctly with variable shadowing" $ do
+      "var a = 0; { var a = 2; false or (a = 3); print a; } print a;" `shouldInterpretAs` Right ["3", "0"]
+    it "Nested blocks evaluate `and` correctly with variable shadowing" $ do
+      "var a = 0; { var a = 2; true and (a = 3); print a; } print a;" `shouldInterpretAs` Right ["3", "0"]
+    it "Ensures `or` does not affect variables in outer scope when short-circuited" $ do
+      "var a = \"initial\"; { true or (a = \"changed\"); } print a;" `shouldInterpretAs` Right ["initial"]
+    it "Ensures `and` does not affect variables in outer scope when short-circuited" $ do
+      "var a = \"initial\"; { false and (a = \"changed\"); } print a;" `shouldInterpretAs` Right ["initial"]
+    it "Uses short-circuiting of `or` to prevent variable reassignment" $ do
+      "var a = \"initial\"; false or (a = \"changed\"); print a;" `shouldInterpretAs` Right ["changed"]
+    it "Uses short-circuiting of `and` to reassign variable in outer scope" $ do
+      "var a = \"initial\"; true and (a = \"changed\"); print a;" `shouldInterpretAs` Right ["changed"]

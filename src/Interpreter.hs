@@ -135,6 +135,16 @@ evaluateExpr (UnaryExpr (TOKEN unary _ _ _) expr) env = do
     (MINUS, LoxNumber r) -> Right (envAfterRight, LoxNumber (-r))
     (BANG, _) -> Right (envAfterRight, LoxBool . not $ isTruthy right)
 -- BinaryExpr
+evaluateExpr (BinaryExpr leftExpr (TOKEN OR _ _ _) rightExpr) env = do
+  (envAfterLeft, leftVal) <- evaluateExpr leftExpr env
+  if isTruthy leftVal
+    then Right (envAfterLeft, leftVal)
+    else evaluateExpr rightExpr envAfterLeft
+evaluateExpr (BinaryExpr leftExpr (TOKEN AND _ _ _) rightExpr) env = do
+  (envAfterLeft, leftVal) <- evaluateExpr leftExpr env
+  if not . isTruthy $ leftVal
+    then Right (envAfterLeft, leftVal)
+    else evaluateExpr rightExpr envAfterLeft
 evaluateExpr (BinaryExpr leftExpr token rightExpr) env = do
   (envAfterLeft, leftVal) <- evaluateExpr leftExpr env
   (envAfterRight, rightVal) <- evaluateExpr rightExpr envAfterLeft
@@ -171,7 +181,15 @@ evaluateExpr (BinaryExpr leftExpr token rightExpr) env = do
     (TOKEN LESS_EQUAL _ _ _) -> case (leftVal, rightVal) of
       (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxBool (l <= r))
       _ -> Left $ LoxRuntimeError $ "Binary operand '<=' requires numbers on left and right side. Actual: " ++ show leftVal ++ " <= " ++ show rightVal
-    _ -> Left $ LoxRuntimeError "Unsupported binary operator."
+    (TOKEN OR _ _ _) ->
+      if isTruthy leftVal
+        then Right (envAfterRight, leftVal)
+        else Right (envAfterRight, rightVal)
+    (TOKEN AND _ _ _) ->
+      if not $ isTruthy leftVal
+        then Right (envAfterRight, leftVal)
+        else Right (envAfterRight, rightVal)
+    _ -> Left . LoxRuntimeError $ "Unsupported binary operator: '" ++ show token ++ "'."
 -- AssignExpr
 evaluateExpr (AssignExpr (TOKEN _ _ (ID name) _) expr) env = do
   (envAfterEval, newValue) <- evaluateExpr expr env
