@@ -2,6 +2,7 @@ module Tokens (
   TokenType (..),
   Literal (..),
   Token (..),
+  -- Functions
   isEquality,
   isComparision,
   isBinaryAdditive,

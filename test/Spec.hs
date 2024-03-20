@@ -1,3 +1,4 @@
+import FileInterpreter (interpretFile)
 import Interpreter (interpret)
 import Parser (parse)
 import Scanner (scanTokens)
@@ -598,3 +599,23 @@ tests = do
       "var x = 5; while (x > 0) { print x; x = x - 1; }" `shouldInterpretAs` Right ["5", "4", "3", "2", "1"]
     it "Evaluates loop with a complex condition involving variables" $ do
       "var x = 0; var y = 5; while (x < y) { print x; x = x + 1; y = y - 1; }" `shouldInterpretAs` Right ["0", "1", "2"]
+
+    describe "Lox Language File Tests" $ do
+      it "Hello Worl!" $ do
+        output <- interpretFile "test/hello_world.lox"
+        output `shouldBe` ["Hello World!"]
+      it "Basic operations" $ do
+        output <- interpretFile "test/basic_operations.lox"
+        output `shouldBe` ["3", "3", "12", "4"]
+      it "Basic variables" $ do
+        output <- interpretFile "test/variable_assignment.lox"
+        output `shouldBe` ["5", "10", "10"]
+      it "Basic logic" $ do
+        output <- interpretFile "test/logical_operations.lox"
+        output `shouldBe` ["true", "false"]
+      it "Basic control flow" $ do
+        output <- interpretFile "test/control_flow.lox"
+        output `shouldBe` ["GE"]
+      it "Very basic loops" $ do
+        output <- interpretFile "test/loops.lox"
+        output `shouldBe` ["0", "1", "2"]

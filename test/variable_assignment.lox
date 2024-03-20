@@ -1,0 +1,7 @@
+// Variable declaration and assignment
+var a = 5;
+var b = 10;
+print a; // Should be 5
+print b; // Should be 10
+a = b;
+print a; // Should be 10

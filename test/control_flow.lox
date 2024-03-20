@@ -1,0 +1,7 @@
+// Control flow with if-else
+var x = 10;
+if (x > 5) {
+  print "GE"; // Should print
+} else {
+  print "LEQ"; // Should not print
+}
