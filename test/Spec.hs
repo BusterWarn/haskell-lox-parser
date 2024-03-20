@@ -498,6 +498,53 @@ tests = do
               ]
       code `shouldInterpretAs` Right ["inner a", "outer b", "global c", "outer a", "outer b", "global c", "global a", "global b", "global c"]
 
+  describe "Interpret if and else logic" $ do
+    it "Executes the if branch when condition is true" $ do
+      "if (true) print \"passed\";" `shouldInterpretAs` Right ["passed"]
+      "if (!!true) print \"passed\";" `shouldInterpretAs` Right ["passed"]
+      "if (!false) print \"passed\";" `shouldInterpretAs` Right ["passed"]
+      "if (1) print \"passed\";" `shouldInterpretAs` Right ["passed"]
+      "if (-1) print \"passed\";" `shouldInterpretAs` Right ["passed"]
+      "if (\"false\") print \"passed\";" `shouldInterpretAs` Right ["passed"]
+
+    it "Skips the if branch when condition is false" $ do
+      "if (false) print \"failed\"; else print \"passed\";" `shouldInterpretAs` Right ["passed"]
+      "if (!true) print \"failed\"; else print \"passed\";" `shouldInterpretAs` Right ["passed"]
+      "if (!!false) print \"failed\"; else print \"passed\";" `shouldInterpretAs` Right ["passed"]
+      "if (!true) print \"failed\"; else print \"passed\";" `shouldInterpretAs` Right ["passed"]
+      "if (!1) print \"failed\"; else print \"passed\";" `shouldInterpretAs` Right ["passed"]
+      "if (!-1) print \"failed\"; else print \"passed\";" `shouldInterpretAs` Right ["passed"]
+      "if (!\"false\") print \"failed\"; else print \"passed\";" `shouldInterpretAs` Right ["passed"]
+
+    it "Executes nothing when if condition is false without an else" $ do
+      "var x = \"unchanged\"; if (false) x = \"changed\"; print x;" `shouldInterpretAs` Right ["unchanged"]
+
+    it "Handles blocks within if statements" $ do
+      "if (true) { print \"block passed\"; }" `shouldInterpretAs` Right ["block passed"]
+
+    it "Handles nested if and else with logical operators" $ do
+      "if (false or true) { if (true and false) print \"wrong\"; else print \"right\"; }" `shouldInterpretAs` Right ["right"]
+
+    it "Skips inner if but executes outer else" $ do
+      "if (false) { if (true) print \"no\"; } else print \"yes\";" `shouldInterpretAs` Right ["yes"]
+
+    it "Evaluates complex conditions with logical operators" $ do
+      "if ((5 < 10) and (10 > 5)) print \"complex passed\";" `shouldInterpretAs` Right ["complex passed"]
+
+    it "Correctly uses variables in if statement conditions" $ do
+      "var a = true; if (a) print \"variable passed\";" `shouldInterpretAs` Right ["variable passed"]
+
+    it "Updates variable based on if condition" $ do
+      "var status = \"start\"; if (true) status = \"end\"; print status;" `shouldInterpretAs` Right ["end"]
+
+    it "Handles assignment in if condition" $ do
+      -- "var x; if (true and (x = true)) print x;" `shouldInterpretAs` Right ["end"] TODO: Parser bug found.
+      "var x; if (true and (x = true)) print x;" `shouldInterpretAs` Right ["true"]
+      "var x; if (true and (x = nil)) print x;" `shouldInterpretAs` Right []
+    it "Manages deeply nested operations with short-circuiting" $ do
+      -- "var x; if (true or (false and x = \"\")) x = \"short-circuit\"; print x;" `shouldInterpretAs` Right ["short-circuit"] TODO: Parser bug found.
+      "var x; if (true or (false and (x = \"\"))) x = \"short-circuit\"; print x;" `shouldInterpretAs` Right ["short-circuit"]
+
   describe "Interpret logical operators with block scoping" $ do
     it "Short-circuits `or` without evaluating right side in a block" $ do
       "var a = 0; true or (a = 1); print a;" `shouldInterpretAs` Right ["0"]
@@ -533,3 +580,5 @@ tests = do
       "var a = \"initial\"; false or (a = \"changed\"); print a;" `shouldInterpretAs` Right ["changed"]
     it "Uses short-circuiting of `and` to reassign variable in outer scope" $ do
       "var a = \"initial\"; true and (a = \"changed\"); print a;" `shouldInterpretAs` Right ["changed"]
+    it "Handles deeply nested logical operations within blocks" $ do
+      "var result = \"unchanged\"; { var inner = false; if (true and (inner = true) or false) result = \"changed\"; } print result;" `shouldInterpretAs` Right ["changed"]

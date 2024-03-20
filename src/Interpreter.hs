@@ -102,7 +102,13 @@ evaluateStmt (BlockStmt stmts) env = evaluateBlockStmts stmts (Map.empty : env) 
   evaluateBlockStmts (s : ss) tempEnv acc = do
     (newy, newStrings) <- evaluateStmt s tempEnv
     evaluateBlockStmts ss newy (acc ++ newStrings)
-evaluateStmt (IfStmt expr stmt maybeStmt) env = undefined
+evaluateStmt (IfStmt expr stmt maybeStmt) env = do
+  (newEnv, exprValue) <- evaluateExpr expr env
+  if isTruthy exprValue
+    then evaluateStmt stmt newEnv
+    else case maybeStmt of
+      Just elseStmt -> evaluateStmt elseStmt newEnv
+      _ -> Right (newEnv, [])
 evaluateStmt (WhileStmt expr stmt) env = undefined
 evaluateStmt (VarDeclStmt tokenType (TOKEN _ _ (ID name) _) EmptyExpr) env = do
   Right (define name Nothing tokenType env, [])
