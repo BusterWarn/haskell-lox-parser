@@ -1,6 +1,19 @@
-module Tokens where
-
-import GHC.Arr (accum)
+module Tokens (
+  TokenType (..),
+  Literal (..),
+  Token (..),
+  isEquality,
+  isComparision,
+  isBinaryAdditive,
+  isBinaryMultiplicative,
+  isUnary,
+  isLiteral,
+  isEOF,
+  isBinary,
+  isVarOrConst,
+  isIdentifier,
+  isEqual,
+) where
 
 -- Datatype TokenType
 -- Used for assigning types of tokens

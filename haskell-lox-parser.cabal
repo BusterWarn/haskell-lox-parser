@@ -4,9 +4,9 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 
-name:           haskell-lex-parser
+name:           haskell-lox-parser
 version:        0.0.0
-description:    Lex Interpereter
+description:    Lox Interpereter
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -16,13 +16,13 @@ extra-source-files:
 library
   exposed-modules:
       AbstractSyntaxTree
+      FileInterpreter
       Interpreter
-      Main
       Parser
       Scanner
       Tokens
   other-modules:
-      Paths_haskell_lex_parser
+      Paths_haskell_lox_parser
   hs-source-dirs:
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
@@ -34,37 +34,30 @@ library
     , split
   default-language: Haskell2010
 
-executable haskell-lex-parser-exe
+executable haskell-lox-parser-exe
   main-is: Main.hs
   other-modules:
-      AbstractSyntaxTree
-      Interpreter
-      Parser
-      Scanner
-      Tokens
-      Paths_haskell_lex_parser
+      Paths_haskell_lox_parser
   hs-source-dirs:
-      src
+      app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base ==4.17.2.0
-    , containers
-    , directory
-    , haskell-lex-parser
+    , haskell-lox-parser
   default-language: Haskell2010
 
-test-suite haskell-lex-parser-test
+test-suite haskell-lox-parser-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Paths_haskell_lex_parser
+      Paths_haskell_lox_parser
   hs-source-dirs:
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base ==4.17.2.0
     , containers
-    , haskell-lex-parser
+    , haskell-lox-parser
     , hspec
   default-language: Haskell2010
 
@@ -72,12 +65,12 @@ benchmark my-benchmark
   type: exitcode-stdio-1.0
   main-is: BenchMain.hs
   other-modules:
-      Paths_haskell_lex_parser
+      Paths_haskell_lox_parser
   hs-source-dirs:
       benchmark
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       base ==4.17.2.0
     , criterion
-    , haskell-lex-parser
+    , haskell-lox-parser
   default-language: Haskell2010

@@ -1,4 +1,10 @@
-module AbstractSyntaxTree where
+module AbstractSyntaxTree (
+  Ast (..),
+  Stmt (..),
+  Expr (..),
+  LoxParseError (..),
+  getAllErrors,
+) where
 
 import Tokens
 

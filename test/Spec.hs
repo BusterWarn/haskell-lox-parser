@@ -1,13 +1,12 @@
-import qualified Interpreter
-import qualified Parser
-import qualified Scanner
-import qualified Tokens
+import Interpreter (interpret)
+import Parser (parse)
+import Scanner (scanTokens)
 
 import Control.Exception (evaluate)
 import Data.Char (isSpace)
 import Data.Either (fromRight, isLeft)
 import Test.Hspec
-import Tokens (TokenType (AND, BANG, BANG_EQUAL, CLASS, COMMA, DOT, ELSE, EOF, EQUAL, EQUAL_EQUAL, FALSE, FOR, FUN, GREATER, GREATER_EQUAL, IDENTIFIER, IF, LEFT_BRACE, LEFT_PAREN, LESS, LESS_EQUAL, MINUS, NIL, NUMBER, OR, PLUS, PRINT, RETURN, RIGHT_BRACE, RIGHT_PAREN, SEMICOLON, SLASH, STAR, STRING, SUPER, THIS, TRUE, VAR, WHILE))
+import Tokens
 
 main :: IO ()
 main = hspec tests
@@ -25,7 +24,7 @@ removeWhitespace = filter (not . isSpace)
 -- Custom infix function for testing parser
 shouldParseAs :: String -> String -> Expectation
 input `shouldParseAs` expected =
-  let parsedStatements = Parser.parse $ Scanner.scanTokens input
+  let parsedStatements = parse $ scanTokens input
       actualShowString = show parsedStatements
       actualNoWhitespace = removeWhitespace actualShowString
       expectedNoWhitespace = removeWhitespace expected
@@ -34,7 +33,7 @@ input `shouldParseAs` expected =
 -- Custom infix function for testing interpreter
 shouldInterpretAs :: String -> Either String [String] -> Expectation
 shouldInterpretAs code expectedResult =
-  let result = Interpreter.interpret code
+  let result = interpret code
    in case expectedResult of
         Left expectedError -> do
           result `shouldSatisfy` isLeft
@@ -54,65 +53,65 @@ tests :: Spec
 tests = do
   describe "Scan correct token types" $ do
     it "Scans all simple characters" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "(){},.-+;*"
+      let result = map tokenToTokenType $ scanTokens "(){},.-+;*"
       result `shouldBe` [LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, COMMA, DOT, MINUS, PLUS, SEMICOLON, STAR, EOF]
     it "Scans all simple characters and ignores whitespace" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "(){}\n,. -+\t;   *\r"
+      let result = map tokenToTokenType $ scanTokens "(){}\n,. -+\t;   *\r"
       result `shouldBe` [LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, COMMA, DOT, MINUS, PLUS, SEMICOLON, STAR, EOF]
     it "Throws an error for invalid characters" $ do
-      evaluate (Scanner.scanTokens "{@}") `shouldThrow` anyException
+      evaluate (scanTokens "{@}") `shouldThrow` anyException
     it "Scans operator tokens" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "= ! < > == === != <= >="
+      let result = map tokenToTokenType $ scanTokens "= ! < > == === != <= >="
       result `shouldBe` [EQUAL, BANG, LESS, GREATER, EQUAL_EQUAL, EQUAL_EQUAL, EQUAL, BANG_EQUAL, LESS_EQUAL, GREATER_EQUAL, EOF]
     it "Can scan = as last token" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "==="
+      let result = map tokenToTokenType $ scanTokens "==="
       result `shouldBe` [EQUAL_EQUAL, EQUAL, EOF]
     it "Can scan / as last token" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "/"
+      let result = map tokenToTokenType $ scanTokens "/"
       result `shouldBe` [SLASH, EOF]
     it "Does not scan tokens" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "/+/ // / comment = a * \n//\n ** ==//"
+      let result = map tokenToTokenType $ scanTokens "/+/ // / comment = a * \n//\n ** ==//"
       result `shouldBe` [SLASH, PLUS, SLASH, STAR, STAR, EQUAL_EQUAL, EOF]
     it "Can scan strings" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "+ \" Hi \n Mom! //\" =="
+      let result = map tokenToTokenType $ scanTokens "+ \" Hi \n Mom! //\" =="
       result `shouldBe` [PLUS, STRING, EQUAL_EQUAL, EOF]
     it "Throws an error if string does not end" $ do
-      evaluate (Scanner.scanTokens "+ \" Hi \n Mom! // ==") `shouldThrow` anyException
+      evaluate (scanTokens "+ \" Hi \n Mom! // ==") `shouldThrow` anyException
     it "Can scan simple int" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "1"
+      let result = map tokenToTokenType $ scanTokens "1"
       result `shouldBe` [NUMBER, EOF]
     it "Can scan simple float" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "1.0"
+      let result = map tokenToTokenType $ scanTokens "1.0"
       result `shouldBe` [NUMBER, EOF]
     it "Can scan an int correctly" $ do
-      let result = head $ Scanner.scanTokens "999"
+      let result = head $ scanTokens "999"
       case result of
         Tokens.TOKEN _ str (Tokens.NUM value) _ -> do
           str `shouldBe` "999"
           value `shouldBe` 999.0
         _ -> error "Expected an identifier token"
     it "Can scan a float correctly" $ do
-      let result = head $ Scanner.scanTokens "999.999"
+      let result = head $ scanTokens "999.999"
       case result of
         Tokens.TOKEN _ str (Tokens.NUM value) _ -> do
           str `shouldBe` "999.999"
           value `shouldBe` 999.999
         _ -> error "Expected an identifier token"
     it "Can scan a complicated float correctly" $ do
-      let result = head $ Scanner.scanTokens "0000010999.999"
+      let result = head $ scanTokens "0000010999.999"
       case result of
         Tokens.TOKEN _ str (Tokens.NUM value) _ -> do
           str `shouldBe` "0000010999.999"
           value `shouldBe` 10999.999
         _ -> error "Expected an identifier token"
     it "Can scan numbers" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "1 .1 1. 1.1 1.1.\n123456789 12345.6789"
+      let result = map tokenToTokenType $ scanTokens "1 .1 1. 1.1 1.1.\n123456789 12345.6789"
       result `shouldBe` [NUMBER, DOT, NUMBER, NUMBER, DOT, NUMBER, NUMBER, DOT, NUMBER, NUMBER, EOF]
     it "Can scan words and identifiers" $ do
-      let result = map tokenToTokenType $ Scanner.scanTokens "hi var m0m_ 1I loVe Y0U. for and true _ w1238ukjdsd_anjkdsf_ _123"
+      let result = map tokenToTokenType $ scanTokens "hi var m0m_ 1I loVe Y0U. for and true _ w1238ukjdsd_anjkdsf_ _123"
       result `shouldBe` [IDENTIFIER, VAR, IDENTIFIER, NUMBER, IDENTIFIER, IDENTIFIER, IDENTIFIER, DOT, FOR, AND, TRUE, IDENTIFIER, IDENTIFIER, IDENTIFIER, EOF]
     it "Can scan an identifier correctly" $ do
-      let result = head $ Scanner.scanTokens "\n\n_I_am_your_f4THER"
+      let result = head $ scanTokens "\n\n_I_am_your_f4THER"
       case result of
         Tokens.TOKEN _ str (Tokens.ID idStr) line -> do
           str `shouldBe` "_I_am_your_f4THER"
@@ -120,31 +119,31 @@ tests = do
           line `shouldBe` 3
         _ -> error "Expected an identifier token"
     it "Cannot scan invalid characters in identifiers" $ do
-      evaluate (Scanner.scanTokens "hi d@d") `shouldThrow` anyException
+      evaluate (scanTokens "hi d@d") `shouldThrow` anyException
     it "Empty input should throw exception" $ do
-      evaluate (Scanner.scanTokens "") `shouldThrow` anyException
+      evaluate (scanTokens "") `shouldThrow` anyException
     it "Input with only whitespace should throw error" $ do
-      evaluate (Scanner.scanTokens " \n\r   ") `shouldThrow` anyException
+      evaluate (scanTokens " \n\r   ") `shouldThrow` anyException
 
   describe "Scans Correct Lines" $ do
     it "Gets some basic lines correct" $ do
-      let result = map tokenToLineNumber $ Scanner.scanTokens "(){},.-+;*\n(){},.-+;*\n\n(){},.-+;*\n"
+      let result = map tokenToLineNumber $ scanTokens "(){},.-+;*\n(){},.-+;*\n\n(){},.-+;*\n"
       result `shouldBe` [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5]
     it "Gets longer token line numbers correctly" $ do
-      let result = map tokenToLineNumber $ Scanner.scanTokens "==\n!=\n<=\ni_am_a_line\nclass\n2398.1324\n0923."
+      let result = map tokenToLineNumber $ scanTokens "==\n!=\n<=\ni_am_a_line\nclass\n2398.1324\n0923."
       result `shouldBe` [1, 2, 3, 4, 5, 6, 7, 7, 7]
     it "Gets comment line numbers correctly" $ do
-      let result = map tokenToLineNumber $ Scanner.scanTokens "Hi // Comment\n//\n//MORE COMMENT\nWorld"
+      let result = map tokenToLineNumber $ scanTokens "Hi // Comment\n//\n//MORE COMMENT\nWorld"
       result `shouldBe` [1, 4, 4]
     it "Gets string line numbers correctly" $ do
-      let result = map tokenToLineNumber $ Scanner.scanTokens "\"string\"\n\"multi\nline\nstring\"\"more string\""
+      let result = map tokenToLineNumber $ scanTokens "\"string\"\n\"multi\nline\nstring\"\"more string\""
       result `shouldBe` [1, 2, 4, 4]
 
   describe "Parses expressions into Statements" $ do
     it "Throws an error if empty input" $ do
       evaluate (Parser.parse []) `shouldThrow` anyException
     it "Throws an error if input list does not end with EOF" $ do
-      let invalidInput = init $ Scanner.scanTokens "1 + 2;" -- Remove EOF with init
+      let invalidInput = init $ scanTokens "1 + 2;" -- Remove EOF with init
       evaluate (Parser.parse invalidInput) `shouldThrow` anyException
 
     it "Parses simple unary !" $ do
@@ -191,15 +190,15 @@ tests = do
       "1 + 2; (3 + 4); !true;" `shouldParseAs` "3 (1.0 + 2.0);  ((3.0 + 4.0));  (! TRUE_LIT);"
 
     it "Throws an error when reading a single '(' 1" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "(2;") `shouldThrow` anyException
+      evaluate (Parser.parse $ scanTokens "(2;") `shouldThrow` anyException
     it "Throws an error when reading a single '(' 2" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "1 + 2 * (5 + 9;") `shouldThrow` anyException
+      evaluate (Parser.parse $ scanTokens "1 + 2 * (5 + 9;") `shouldThrow` anyException
     it "Throws an error when reading more '(' than ')'" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "1 + ((1 * 1);") `shouldThrow` anyException
+      evaluate (Parser.parse $ scanTokens "1 + ((1 * 1);") `shouldThrow` anyException
     it "Throws an error when reading more ')' than '('" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "1 + (1 * 1));") `shouldThrow` anyException
+      evaluate (Parser.parse $ scanTokens "1 + (1 * 1));") `shouldThrow` anyException
     it "Throws an error on expression in the middle" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "1 + 1; (4 + 4; (5 + 9);") `shouldThrow` anyException
+      evaluate (Parser.parse $ scanTokens "1 + 1; (4 + 4; (5 + 9);") `shouldThrow` anyException
 
     it "Parses empty variable declaration" $ do
       "var x;" `shouldParseAs` "1 V DEC -> x;"
@@ -227,8 +226,8 @@ tests = do
     it "Parses assignments between statements" $ do
       "a = b; var x; x = 0; var gimme = x; gimme = gimme; 1 + 1;" `shouldParseAs` "6 a = b; V DEC -> x; x = 0.0; V DEC -> gimme = x; gimme = gimme; (1.0 + 1.0);"
     it "Throws when trying to assign to rvalue" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "1 = true;") `shouldThrow` anyException
-      evaluate (Parser.parse $ Scanner.scanTokens "true = false;") `shouldThrow` anyException
+      evaluate (Parser.parse $ scanTokens "1 = true;") `shouldThrow` anyException
+      evaluate (Parser.parse $ scanTokens "true = false;") `shouldThrow` anyException
 
     it "Parses simple and" $ do
       "true and false;" `shouldParseAs` "1 (TRUE_LIT && FALSE_LIT);"
@@ -266,13 +265,13 @@ tests = do
       "if (hawaii) { if (sun) shirt = on; else false; } else if (greece) if (gyros) print tacos; else print \"fries\";" `shouldParseAs` "1 if (hawaii) {if (sun) shirt = on; else FALSE_LIT;}  else if (greece) if (gyros) print tacos; else print \"fries\";"
 
     it "Parser throws error if you forget () around if condition" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "if x x = x; ") `shouldThrow` anyException
+      evaluate (Parser.parse $ scanTokens "if x x = x; ") `shouldThrow` anyException
     it "Parser throws error if you forget ; inside if block { }" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "if (x) { x = x } ") `shouldThrow` anyException
+      evaluate (Parser.parse $ scanTokens "if (x) { x = x } ") `shouldThrow` anyException
     it "Parser thows error if var decl is outside of if block" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "if (x) var y = x; ") `shouldThrow` anyException
+      evaluate (Parser.parse $ scanTokens "if (x) var y = x; ") `shouldThrow` anyException
     it "Parser thows error if var decl is outside of else block" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "if (x) y = x; else var x = y;") `shouldThrow` anyException
+      evaluate (Parser.parse $ scanTokens "if (x) y = x; else var x = y;") `shouldThrow` anyException
 
     it "Parses simple while statement" $ do
       "while (1) fork;" `shouldParseAs` "1 while (1.0) fork;"
@@ -284,9 +283,9 @@ tests = do
       "while ( x == true ) if (false) { var x = false; } else { var x = true; }" `shouldParseAs` "1 while ((x == TRUE_LIT))if (FALSE_LIT) { V DEC -> x = FALSE_LIT; } else { V DEC -> x = TRUE_LIT; }"
 
     it "Parser throws error if you forget () around while condition" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "while x x = x; ") `shouldThrow` anyException
+      evaluate (Parser.parse $ scanTokens "while x x = x; ") `shouldThrow` anyException
     it "Parser throws error if you forget ; inside while block { }" $ do
-      evaluate (Parser.parse $ Scanner.scanTokens "while (x) { x = x } ") `shouldThrow` anyException
+      evaluate (Parser.parse $ scanTokens "while (x) { x = x } ") `shouldThrow` anyException
 
     it "Parses simple return" $ do
       "return;" `shouldParseAs` "1 return;"

@@ -1,4 +1,4 @@
-module Interpreter (interpret) where
+module Interpreter (interpret, interpretAst) where
 
 import AbstractSyntaxTree
 import Data.List (isSuffixOf)
@@ -6,9 +6,36 @@ import Parser (parse)
 import Scanner (scanTokens)
 import Tokens
 
-import Control.Exception (evaluate)
 import qualified Data.Map as Map
-import GHC.IO.FD (stdout)
+
+{- |
+  'interpret' - Interprets Lox language code.
+
+  Input:
+    - 'code :: String' - Source code of the program.
+
+  Output:
+    - 'Either LoxRuntimeError (Environment, [String])' - Either a runtime error or the final environment and STDOUT from prints.
+-}
+interpret :: String -> Either LoxRuntimeError (Environment, [String])
+interpret code =
+  let (Ast stmts) = parse . scanTokens $ code
+   in interpretStmts stmts [Map.empty]
+
+{- |
+  'interpretAst  - Interprets Lox language AST.
+
+  Input:
+    - 'Ast' - Source code of the program, represented as an Ast.
+
+  Output:
+    - '[String]' - The stdout from prints or LoxRuntimeError.
+-}
+interpretAst :: Ast -> [String]
+interpretAst (Ast stmts) =
+  case interpretStmts stmts [Map.empty] of
+    (Left (LoxRuntimeError err)) -> [err]
+    Right (_, printResults) -> printResults
 
 data LoxValue
   = LoxNumber Float
@@ -55,20 +82,6 @@ getVar name (current : outer) =
   case Map.lookup name current of
     Just variable -> Right variable
     Nothing -> getVar name outer
-
-{- |
-  'interpret' - Interprets Lox language code.
-
-  Input:
-    - 'code :: String' - Source code of the program.
-
-  Output:
-    - 'Either LoxRuntimeError (Environment, [String])' - Either a runtime error or the final environment and STDOUT from prints.
--}
-interpret :: String -> Either LoxRuntimeError (Environment, [String])
-interpret code =
-  let (Ast stmts) = parse . scanTokens $ code
-   in interpretStmts stmts [Map.empty]
 
 {- |
   'interpretStmts' - Recursively evaluates a list of statements, updating the environment.
