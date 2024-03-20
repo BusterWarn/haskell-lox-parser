@@ -507,6 +507,20 @@ tests = do
       "var a = 0; false and (a = 1); print a;" `shouldInterpretAs` Right ["0"]
     it "Evaluates right side of `and` when left side is true" $ do
       "var a = 0; true and (a = 1); print a;" `shouldInterpretAs` Right ["1"]
+    it "Evaluates deeply nested `and` and `or` operations correctly" $ do
+      "print true and true and false or true;" `shouldInterpretAs` Right ["true"]
+    it "Short-circuits at the first false in a nested `and` sequence" $ do
+      "var a = 0; true and false and (a = 1) or true; print a;" `shouldInterpretAs` Right ["0"]
+    it "Evaluates right side of `or` after short-circuiting `and`" $ do
+      "var a = 0; true and false and (a = 1) or (a = 2); print a;" `shouldInterpretAs` Right ["2"]
+    it "Short-circuits entire expression with leading `or` true" $ do
+      "var a = 0; true or false and (a = 1); print a;" `shouldInterpretAs` Right ["0"]
+    it "Evaluates deeply nested operations with variable assignments" $ do
+      "var a = 0; var b = 0; true and (a = 1) or (b = 1); print a; print b;" `shouldInterpretAs` Right ["1", "0"]
+    it "Short-circuits with nested `and` and `or`, affecting variables conditionally" $ do
+      "var x = 0; var y = 0; true and (x = 1) or (y = 1) and false; print x; print y;" `shouldInterpretAs` Right ["1", "0"]
+    it "Processes mixed `and` and `or` with precedence, affecting outer scope" $ do
+      "var flag = false; (true or flag) and (flag = true); print flag;" `shouldInterpretAs` Right ["true"]
     it "Nested blocks evaluate `or` correctly with variable shadowing" $ do
       "var a = 0; { var a = 2; false or (a = 3); print a; } print a;" `shouldInterpretAs` Right ["3", "0"]
     it "Nested blocks evaluate `and` correctly with variable shadowing" $ do
