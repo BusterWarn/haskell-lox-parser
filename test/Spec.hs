@@ -601,7 +601,7 @@ tests = do
       "var x = 0; var y = 5; while (x < y) { print x; x = x + 1; y = y - 1; }" `shouldInterpretAs` Right ["0", "1", "2"]
 
     describe "Lox Language File Tests" $ do
-      it "Hello Worl!" $ do
+      it "Hello World!" $ do
         output <- interpretFile "test/hello_world.lox"
         output `shouldBe` ["Hello World!"]
       it "Basic operations" $ do
@@ -611,11 +611,43 @@ tests = do
         output <- interpretFile "test/variable_assignment.lox"
         output `shouldBe` ["5", "10", "10"]
       it "Basic logic" $ do
-        output <- interpretFile "test/logical_operations.lox"
-        output `shouldBe` ["true", "false"]
+        output <- interpretFile "test/logical_operator.lox"
+        output
+          `shouldBe` [ -- and
+                       "false"
+                     , "1"
+                     , "false"
+                     , "true"
+                     , "3"
+                     , "true"
+                     , "false"
+                     , -- and_truth
+                       "false"
+                     , "nil"
+                     , "ok"
+                     , "ok"
+                     , "ok"
+                     , -- or
+                       "1"
+                     , "1"
+                     , "true"
+                     , "false"
+                     , "false"
+                     , "false"
+                     , "true"
+                     , -- or_truth
+                       "ok"
+                     , "ok"
+                     , "true"
+                     , "0"
+                     , "s"
+                     ]
       it "Basic control flow" $ do
         output <- interpretFile "test/control_flow.lox"
-        output `shouldBe` ["GE"]
-      it "Very basic loops" $ do
-        output <- interpretFile "test/loops.lox"
-        output `shouldBe` ["0", "1", "2"]
+        output `shouldBe` ["GE", "good", "good", "good", "block", "good", "block", "true", "false", "nil", "true", "0", "empty"]
+      it "Basic grouping" $ do
+        output <- interpretFile "test/grouping.lox"
+        output `shouldBe` ["before", "after", "arg", "arg", "outside"]
+      it "Fibonacci while loop" $ do
+        output <- interpretFile "test/fibonacci_while_loop.lox"
+        output `shouldBe` ["0", "1", "1", "2", "3", "5", "8", "13", "21", "34"]

@@ -1,5 +1,0 @@
-// Logical operations
-var truthy = true and true;
-var falsy = false or false;
-print truthy; // Should be true
-print falsy; // Should be false
