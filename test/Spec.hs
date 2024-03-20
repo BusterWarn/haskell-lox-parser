@@ -582,3 +582,20 @@ tests = do
       "var a = \"initial\"; true and (a = \"changed\"); print a;" `shouldInterpretAs` Right ["changed"]
     it "Handles deeply nested logical operations within blocks" $ do
       "var result = \"unchanged\"; { var inner = false; if (true and (inner = true) or false) result = \"changed\"; } print result;" `shouldInterpretAs` Right ["changed"]
+
+  describe "Interpret while loops" $ do
+    it "Executes simple while loop correctly" $ do
+      "var x = true; while (x) x = false; print x;" `shouldInterpretAs` Right ["false"]
+      "var x = 0; while (x < 5) { print x; x = x + 1; }" `shouldInterpretAs` Right ["0", "1", "2", "3", "4"]
+    it "Handles nested while loops" $ do
+      "var x = 0; while (x < 2) { var y = 0; while (y < 2) { print y; y = y + 1; } x = x + 1; }" `shouldInterpretAs` Right ["0", "1", "0", "1"]
+    it "Modifies multiple variables within a loop" $ do
+      "var x = 0; var sum = 0; while (x < 5) { sum = sum + x; x = x + 1; } print sum;" `shouldInterpretAs` Right ["10"]
+    it "Uses complex condition for loop continuation" $ do
+      "var x = 0; while (x < 10 and x != 6) { print x; x = x + 2; }" `shouldInterpretAs` Right ["0", "2", "4"]
+    it "Skips loop body when initial condition is false" $ do
+      "var x = 10; while (x < 5) { print x; x = x + 1; }" `shouldInterpretAs` Right []
+    it "Executes loop with variable decrement" $ do
+      "var x = 5; while (x > 0) { print x; x = x - 1; }" `shouldInterpretAs` Right ["5", "4", "3", "2", "1"]
+    it "Evaluates loop with a complex condition involving variables" $ do
+      "var x = 0; var y = 5; while (x < y) { print x; x = x + 1; y = y - 1; }" `shouldInterpretAs` Right ["0", "1", "2"]

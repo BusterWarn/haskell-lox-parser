@@ -8,6 +8,7 @@ import Tokens
 
 import Control.Exception (evaluate)
 import qualified Data.Map as Map
+import GHC.IO.FD (stdout)
 
 data LoxValue
   = LoxNumber Float
@@ -109,7 +110,15 @@ evaluateStmt (IfStmt expr stmt maybeStmt) env = do
     else case maybeStmt of
       Just elseStmt -> evaluateStmt elseStmt newEnv
       _ -> Right (newEnv, [])
-evaluateStmt (WhileStmt expr stmt) env = undefined
+evaluateStmt (WhileStmt condition stmt) initialEnv = while initialEnv []
+ where
+  while env printAcc = do
+    (envAfterCondition, val) <- evaluateExpr condition env
+    if isTruthy val
+      then do
+        (envAfterStmt, printResult) <- evaluateStmt stmt envAfterCondition
+        while envAfterStmt (printAcc ++ printResult)
+      else Right (envAfterCondition, printAcc)
 evaluateStmt (VarDeclStmt tokenType (TOKEN _ _ (ID name) _) EmptyExpr) env = do
   Right (define name Nothing tokenType env, [])
 evaluateStmt (VarDeclStmt tokenType (TOKEN _ _ (ID name) _) expr) env = do
