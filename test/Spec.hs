@@ -288,6 +288,60 @@ tests = do
     it "Parser throws error if you forget ; inside while block { }" $ do
       evaluate (Parser.parse $ scanTokens "while (x) { x = x } ") `shouldThrow` anyException
 
+    it "Parses an empty for loop" $ do
+      "for (;;) print \"Infinite loop\";"
+        `shouldParseAs` "1 while () { print \"Infinite loop\"; }"
+    it "Parses a for loop with only condition" $ do
+      "for (; i < 10;) print i;"
+        `shouldParseAs` "1 while ((i < 10.0)) { print i; }"
+    it "Parses a for loop with only initialization" $ do
+      "for (var i = 0;;) { print i; i = i + 1; if (i >= 10) break; }"
+        `shouldParseAs` "1 { V DEC -> i=0.0; while () {{ print i; i = (i + 1.0); if ((i >= 10.0)) break; }} }"
+    it "Parses a for loop with only increment" $ do
+      "var i = 0; for (;; i = i + 1) { print i; if (i >= 10) break; }"
+        `shouldParseAs` "2 V DEC -> i=0.0; while () { { print i; if ((i >= 10.0)) break; } i = (i + 1.0); }"
+    it "Parses a for loop with initialization and condition" $ do
+      "for (var i = 0; i < 10;) { print i; i = i + 1; }"
+        `shouldParseAs` "1 { V DEC -> i=0.0; while ((i < 10.0)) {{ print i; i = (i + 1.0); }} }"
+    it "Parses a for loop with condition and increment" $ do
+      "var i = 0; for (; i < 10; i = i + 1) print i;"
+        `shouldParseAs` "2 V DEC -> i = 0.0; while ((i < 10.0)) { print i; i = (i + 1.0); }"
+    it "Parses a for loop with initialization and increment" $ do
+      "for (var i = 0;; i = i + 1) { print i; if (i >= 10) break; }"
+        `shouldParseAs` "1 { V DEC -> i=0.0; while () {{ print i; if ((i >= 10.0)) break; } i = (i + 1.0); }}"
+    it "Parses a for loop with all parts present" $ do
+      "for (var i = 0; i < 10; i = i + 1) print i;"
+        `shouldParseAs` "1 { V DEC -> i=0.0; while ((i < 10.0)) { print i; i = (i + 1.0); } }"
+    it "Parses a for loop with initialization in the loop" $ do
+      "var i = 0; for (; i < 10; i = i + 1) { print i; i = i + 1; }"
+        `shouldParseAs` "2 V DEC -> i=0.0; while ((i < 10.0)) { { print i; i = (i + 1.0); } i = (i + 1.0); }"
+    it "Parses a for loop with initialization outside the loop" $ do
+      "var i; for (i = 0; i < 10; i = i + 1) { print i; i = i + 1; }"
+        `shouldParseAs` "2 V DEC -> i; { i = 0.0; while ((i < 10.0)) { { print i; i = (i + 1.0); } i = (i + 1.0); } }"
+    it "Parses a for loop with variable declaration inside the loop" $ do
+      "for (var i = 0; i < 10; i = i + 1) { print i; i = i + 1; }"
+        `shouldParseAs` "1 { V DEC -> i=0.0; while ((i < 10.0)) { { print i; i = (i + 1.0); } i = (i + 1.0); } }"
+    it "Parses empty for loop" $ do
+      "for (var i = 0; i < 10; i = i + 1) { print i; i = i + 1; }"
+        `shouldParseAs` "1 { V DEC -> i=0.0; while ((i < 10.0)) { { print i; i = (i + 1.0); } i = (i + 1.0); } }"
+
+    it "Parser throws error if you forget () around for condition" $ do
+      evaluate (Parser.parse $ scanTokens "for var i = 0; i < 10; i = i + 1 { print i; }") `shouldThrow` anyException
+    it "Parser throws error if you forget ; after initializer in for loop" $ do
+      evaluate (Parser.parse $ scanTokens "for (var i = 0 i < 10; i = i + 1) { print i; }") `shouldThrow` anyException
+    it "Parser throws error if you forget second ; in for loop" $ do
+      evaluate (Parser.parse $ scanTokens "for (var i = 0; i < 10 i = i + 1) { print i; }") `shouldThrow` anyException
+    it "Parser throws error if for loop has no parentheses" $ do
+      evaluate (Parser.parse $ scanTokens "for var i = 0; i < 10; i = i + 1; { print i; }") `shouldThrow` anyException
+    it "Parser throws error if for loop condition is malformed" $ do
+      evaluate (Parser.parse $ scanTokens "for (var i = 0; i <> 10; i = i + 1) { print i; }") `shouldThrow` anyException
+    it "Parser throws error if for loop increment is malformed" $ do
+      evaluate (Parser.parse $ scanTokens "for (var i = 0; i < 10; i += 1) { print i; }") `shouldThrow` anyException
+    it "Parser throws error if for loop body is missing" $ do
+      evaluate (Parser.parse $ scanTokens "for (var i = 0; i < 10; i = i + 1);") `shouldThrow` anyException
+    it "Parser throws error if for loop is completely empty" $ do
+      evaluate (Parser.parse $ scanTokens "for (;;)") `shouldThrow` anyException
+
     it "Parses simple return" $ do
       "return;" `shouldParseAs` "1 return;"
     it "Parses pretty advanced example 1" $ do
@@ -651,3 +705,6 @@ tests = do
       it "Fibonacci while loop" $ do
         output <- interpretFile "test/fibonacci_while_loop.lox"
         output `shouldBe` ["0", "1", "1", "2", "3", "5", "8", "13", "21", "34"]
+      it "Fibonacci for loop" $ do
+        output <- interpretFile "test/fibonacci_for_loop.lox"
+        output `shouldBe` ["0", "1", "1", "2", "3", "5", "8", "13", "21", "34", "55", "89", "144", "233", "377", "610", "987", "1597", "2584", "4181", "6765"]

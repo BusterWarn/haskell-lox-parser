@@ -1,7 +1,6 @@
 module Parser (parse) where
 
 import AbstractSyntaxTree
-import Scanner (scanTokens)
 import Tokens
 
 {- |
@@ -98,6 +97,7 @@ statement tokens@((TOKEN tokenType _ _ _) : ts)
   | tokenType == PRINT = printStatement ts
   | tokenType == LEFT_BRACE = block ts
   | tokenType == IF = ifStatement ts
+  | tokenType == FOR = forStatement ts
   | tokenType == WHILE = whileStatement ts
   | otherwise = expressionStatement tokens
 
@@ -129,6 +129,84 @@ ifStatement tokens =
                            in (Just elseStmt, restAfterElseStatement)
                         _ -> (Nothing, restAfterIfStatement)
                    in (IfStmt condition ifStmt maybeElseStmt, finalRest)
+
+{- |
+  'forStatement' - Parses a 'for' loop statement.
+
+  Input:
+    - '[Token]' - Tokens to be parsed.
+
+  Output:
+    - '(Stmt, [Token])' - The parsed 'for' loop and remaining tokens.
+-}
+forStatement :: [Token] -> (Stmt, [Token])
+forStatement [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens!" (TOKEN EOF "" NONE 0), [])
+forStatement tokens =
+  case forLoop tokens of
+    Left err ->
+      let tokensAfterFailure = synchronize tokens
+       in (ErrorStmt $ ErrorExpr err, tokensAfterFailure)
+    Right (Nothing, condExpr, incrExpr, bodyStmt, tokensAfterFor) ->
+      let whileStmt = WhileStmt condExpr (BlockStmt $ bodyStmt : appendIncrementExprIfAny incrExpr)
+       in (whileStmt, tokensAfterFor)
+    Right (Just initStmt, condExpr, incrExpr, bodyStmt, tokensAfterFor) ->
+      let whileStmt = WhileStmt condExpr (BlockStmt $ bodyStmt : appendIncrementExprIfAny incrExpr)
+          forStmt = BlockStmt [initStmt, whileStmt]
+       in (forStmt, tokensAfterFor)
+ where
+  appendIncrementExprIfAny EmptyExpr = []
+  appendIncrementExprIfAny expr = [ExprStmt expr]
+
+{- |
+  'forLoop' - Helper function for forStatement. Helps parse tokens of a for loop into its basic expressions and
+              statements.
+
+  Input:
+    - '[Token]' - Tokens to be parsed.
+
+  Output:
+    - 'Either LoxParseError (Maybe Stmt, Expr, Expr, Stmt, [Token])' - The parsed parts of the 'for' loop.
+-}
+forLoop :: [Token] -> Either LoxParseError (Maybe Stmt, Expr, Expr, Stmt, [Token])
+forLoop tokensAfterFor = do
+  tokensAfterLeftParen <- consume tokensAfterFor LEFT_PAREN "Expect '(' after 'for'."
+  (initStmt, tokensAfterInit) <- forLoopParseInitalizer tokensAfterLeftParen
+  tokensAtCondition <- case initStmt of
+    Just _ -> Right tokensAfterInit
+    Nothing -> consume tokensAfterLeftParen SEMICOLON "Expect ';' after 'for ( varStmt'"
+
+  (condition, tokensAtIncrement) <- forLoopParseCondition tokensAtCondition
+  (increment, tokensAtBody) <- forLoopParseIncrement tokensAtIncrement
+
+  let (body, tokensAfterBody) = statement tokensAtBody
+  return (initStmt, condition, increment, body, tokensAfterBody)
+
+-- Helper function for forLoop. Helps parse the first initialiser Stmt.
+forLoopParseInitalizer :: [Token] -> Either LoxParseError (Maybe Stmt, [Token])
+forLoopParseInitalizer tokens@((TOKEN SEMICOLON _ _ _) : _) = Right (Nothing, tokens)
+forLoopParseInitalizer tokens@(t : _)
+  | isVarOrConst t =
+      let (varStmt, restAfterVarStmt) = varDeclaration tokens
+       in Right (Just varStmt, restAfterVarStmt)
+  | otherwise =
+      let (exprStmt, restAfterExprStmt) = expressionStatement tokens
+       in Right (Just exprStmt, restAfterExprStmt)
+
+-- Helper function for forLoop. Helps parse the condition Expr.
+forLoopParseCondition :: [Token] -> Either LoxParseError (Expr, [Token])
+forLoopParseCondition ((TOKEN SEMICOLON _ _ _) : rest) = Right (EmptyExpr, rest)
+forLoopParseCondition tokens = do
+  let (condExpr, rest) = expression tokens
+  tokensAtIncr <- consume rest SEMICOLON "Expect ';' after 'for ( varStmt ; cond'."
+  Right (condExpr, tokensAtIncr)
+
+-- Helper function for forLoop. Helps parse the increment Expr.
+forLoopParseIncrement :: [Token] -> Either LoxParseError (Expr, [Token])
+forLoopParseIncrement ((TOKEN RIGHT_PAREN _ _ _) : rest) = Right (EmptyExpr, rest)
+forLoopParseIncrement tokens = do
+  let (incrExpr, rest) = expression tokens
+  tokensAtIncr <- consume rest RIGHT_PAREN "Expect ')' after 'for ( varStmt ; cond ; incr'."
+  Right (incrExpr, tokensAtIncr)
 
 {- |
   'whileStatement' - Parses a 'while' loop statement.
@@ -432,7 +510,7 @@ unary tokens@(t : ts) =
 -}
 primary :: [Token] -> (Expr, [Token])
 primary [] = error "Empty list of Tokens!"
-primary (t@(TOKEN tokenType _ _ _) : ts)
+primary tokens@(t@(TOKEN tokenType _ _ _) : ts)
   | isLiteral t = (LiteralExpr t, ts)
   | tokenType == RETURN = (LiteralExpr t, ts)
   | tokenType == LEFT_PAREN =
@@ -441,6 +519,8 @@ primary (t@(TOKEN tokenType _ _ _) : ts)
        in case result of
             Right restAfterConsume -> (GroupingExpr left, restAfterConsume)
             Left err -> (ErrorExpr err, rest)
+  -- \| otherwise = (EmptyExpr, tokens)
+
   | otherwise = (ErrorExpr $ LoxParseError "Unexpected Character" t, ts)
 
 {- |
