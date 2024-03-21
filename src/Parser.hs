@@ -78,8 +78,8 @@ varDeclaration ((TOKEN varOrConstT _ _ _) : idToken@(TOKEN IDENTIFIER _ _ _) : (
   let (expr, restAfterExppresion) = expression exprTokens
       result = consume restAfterExppresion SEMICOLON "Expect ';' after expression." -- TODO: fix bug here
    in case result of
-        Left restAfterConsume -> (VarDeclStmt varOrConstT idToken expr, restAfterConsume)
-        Right err -> (ErrorStmt $ ErrorExpr err, restAfterExppresion)
+        Right restAfterConsume -> (VarDeclStmt varOrConstT idToken expr, restAfterConsume)
+        Left err -> (ErrorStmt $ ErrorExpr err, restAfterExppresion)
 varDeclaration ((TOKEN varOrConstT _ _ _) : idToken@(TOKEN IDENTIFIER _ _ _) : (TOKEN SEMICOLON _ _ _) : rest) = (VarDeclStmt varOrConstT idToken EmptyExpr, rest)
 varDeclaration tokens@(t : _) = (ErrorStmt $ ErrorExpr $ LoxParseError ("Expect '=' or ';' after identifier, got: " ++ show t) t, tokens)
 
@@ -115,13 +115,13 @@ ifStatement [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens!" 
 ifStatement tokens =
   let resultAfterLeftParen = consume tokens LEFT_PAREN "Expect '(' after 'if'."
    in case resultAfterLeftParen of
-        Right err -> (ErrorStmt $ ErrorExpr err, tokens)
-        Left restAfterConsumeLeftParen ->
+        Left err -> (ErrorStmt $ ErrorExpr err, tokens)
+        Right restAfterConsumeLeftParen ->
           let (condition, restAfterCondition) = expression restAfterConsumeLeftParen
               resultAfterRightParen = consume restAfterCondition RIGHT_PAREN ("Expect ')' after if condition: '" ++ show condition ++ "'")
            in case resultAfterRightParen of
-                Right err -> (ErrorStmt $ ErrorExpr err, restAfterCondition)
-                Left restAfterRightParen ->
+                Left err -> (ErrorStmt $ ErrorExpr err, restAfterCondition)
+                Right restAfterRightParen ->
                   let (ifStmt, restAfterIfStatement@(t : restAfterElse)) = statement restAfterRightParen
                       (maybeElseStmt, finalRest) = case t of
                         (TOKEN ELSE _ _ _) ->
@@ -144,13 +144,13 @@ whileStatement [] = (ErrorStmt $ ErrorExpr $ LoxParseError "Empty list of Tokens
 whileStatement tokens =
   let resultAfterLeftParen = consume tokens LEFT_PAREN "Expect '(' after 'while'."
    in case resultAfterLeftParen of
-        Right err -> (ErrorStmt $ ErrorExpr err, tokens)
-        Left restAfterConsumeLeftParen ->
+        Left err -> (ErrorStmt $ ErrorExpr err, tokens)
+        Right restAfterConsumeLeftParen ->
           let (condition, restAfterCondition) = expression restAfterConsumeLeftParen
               resultAfterRightParen = consume restAfterCondition RIGHT_PAREN ("Expect ')' after while condition: '" ++ show condition ++ "'")
            in case resultAfterRightParen of
-                Right err -> (ErrorStmt $ ErrorExpr err, restAfterCondition)
-                Left restAfterRightParen ->
+                Left err -> (ErrorStmt $ ErrorExpr err, restAfterCondition)
+                Right restAfterRightParen ->
                   let (whileStatement, restAfterWhileStatement) = statement restAfterRightParen
                    in (WhileStmt condition whileStatement, restAfterWhileStatement)
 
@@ -190,8 +190,8 @@ printStatement tokens =
   let (expr, rest) = expression tokens
       result = consume rest SEMICOLON "Expect ';' after value."
    in case result of
-        Left restAfterConsume -> (PrintStmt expr, restAfterConsume)
-        Right err -> (ErrorStmt $ ErrorExpr err, rest)
+        Right restAfterConsume -> (PrintStmt expr, restAfterConsume)
+        Left err -> (ErrorStmt $ ErrorExpr err, rest)
 
 {- |
   'expressionStatement' - Parses an expression used as a statement.
@@ -208,8 +208,8 @@ expressionStatement tokens =
   let (expr, rest) = expression tokens
       result = consume rest SEMICOLON "Expect ';' after expression."
    in case result of
-        Left restAfterConsume -> (ExprStmt expr, restAfterConsume)
-        Right err -> (ErrorStmt $ ErrorExpr err, rest)
+        Right restAfterConsume -> (ExprStmt expr, restAfterConsume)
+        Left err -> (ErrorStmt $ ErrorExpr err, rest)
 
 {- |
   'expression' - Parses an expression.
@@ -439,8 +439,8 @@ primary (t@(TOKEN tokenType _ _ _) : ts)
       let (left, rest) = expression ts
           result = consume rest RIGHT_PAREN "Expect ')' after expression."
        in case result of
-            Left restAfterConsume -> (GroupingExpr left, restAfterConsume)
-            Right err -> (ErrorExpr err, rest)
+            Right restAfterConsume -> (GroupingExpr left, restAfterConsume)
+            Left err -> (ErrorExpr err, rest)
   | otherwise = (ErrorExpr $ LoxParseError "Unexpected Character" t, ts)
 
 {- |
@@ -452,13 +452,13 @@ primary (t@(TOKEN tokenType _ _ _) : ts)
     - 'String' - Error message to use if the expected token is not next.
 
   Output:
-    - 'Either [Token] LoxParseError' - The remaining tokens if successful, or an error.
+    - 'Either LoxParseError [Token]'  - The remaining tokens if successful, or an error.
 -}
-consume :: [Token] -> TokenType -> String -> Either [Token] LoxParseError
-consume [] _ errorMessage = Right $ LoxParseError errorMessage (TOKEN EOF "" NONE 0)
+consume :: [Token] -> TokenType -> String -> Either LoxParseError [Token]
+consume [] _ errorMessage = Left $ LoxParseError errorMessage (TOKEN EOF "" NONE 0)
 consume (actual@(TOKEN actualTokenType _ _ _) : ts) expectedTokenType errorMessage
-  | actualTokenType == expectedTokenType = Left ts
-  | otherwise = Right $ LoxParseError errorMessage actual
+  | actualTokenType == expectedTokenType = Right ts
+  | otherwise = Left $ LoxParseError errorMessage actual
 
 {- |
   'synchronize' - Discards tokens until it reaches a statement boundary, used for error recovery.
