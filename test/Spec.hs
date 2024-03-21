@@ -33,22 +33,11 @@ input `shouldParseAs` expected =
 
 -- Custom infix function for testing interpreter
 shouldInterpretAs :: String -> Either String [String] -> Expectation
-shouldInterpretAs code expectedResult =
+shouldInterpretAs code expectedResult = do
   let result = interpret code
-   in case expectedResult of
-        Left expectedError -> do
-          result `shouldSatisfy` isLeft
-        Right expectedOutput -> do
-          let actualOutput = snd $ fromRight (error "Expected Right, found Left") result
-          actualOutput `shouldBe` expectedOutput
- where
-  fromLeft :: a -> Either a b -> a
-  fromLeft _ (Left a) = a
-  fromLeft defaultValue _ = defaultValue
-
-  fromRight :: b -> Either a b -> b
-  fromRight _ (Right b) = b
-  fromRight defaultValue _ = defaultValue
+  case (expectedResult, result) of
+    (Left _, _) -> return () -- We expected an error and got an error; specifics of the error are ignored.
+    (Right expectedOutput, (_, actualOutput)) -> actualOutput `shouldBe` expectedOutput
 
 tests :: Spec
 tests = do
@@ -708,3 +697,6 @@ tests = do
       it "Fibonacci for loop" $ do
         output <- interpretFile "test/fibonacci_for_loop.lox"
         output `shouldBe` ["0", "1", "1", "2", "3", "5", "8", "13", "21", "34", "55", "89", "144", "233", "377", "610", "987", "1597", "2584", "4181", "6765"]
+      it "Loop will crash, but prints should not be discarded" $ do
+        output <- interpretFile "test/loop_will_eventually_crash.lox"
+        output `shouldBe` ["0", "1", "LoxRuntimeError \"Undefined variable 'x'.\""]

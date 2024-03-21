@@ -25,4 +25,6 @@ interpretFile filename = do
     Right contents -> do
       let tokens = scanTokens contents
           ast = parse tokens
-      return $ interpretAst ast
+      case interpretAst ast of
+        (Nothing, prints) -> return prints
+        (Just err, prints) -> return (prints ++ [show err])
