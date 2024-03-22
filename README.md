@@ -2,6 +2,66 @@
 
 This project is an implementation of the Lox interpreter, written in Haskell. The interpreter is based on the design and specifications provided in [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom. The book is an excellent resource for anyone interested in learning more about interpreters, compilers, and programming languages design.
 
+## Running the Interpreter
+
+To run the interpreter, you'll need Haskell and Stack installed on your machine. Once you have these prerequisites:
+
+1. Run `stack build` to build the project.
+2. To interpret a Lox program, use `stack run <filename>`, where `<filename>` is the path to your Lox program file.
+
+Example:
+```shell
+stack run test/fibonacci_for_loop.lox
+```
+
+This will interpret the Lox program contained in `hello_world.lox` and execute it.
+
+## Exceptions
+
+This Lox Interpreter will run until it hits an error, 
+
+```shell
+stack run test/loop_will_eventually_crash.lox
+0
+1
+LoxRuntimeError "Line 5. Undefined variable 'x'."
+```
+
+## Const feature.
+
+This Lox implementation supports const variables!
+
+```javascript
+const x;
+x = 5;
+print x; // "5"
+```
+
+```javascript
+const x = 42;
+x = 5;
+print x; // "Attempted to reassign constant 'x'."
+```
+
+However since Lox language support ['reevaluation' of variables](https://craftinginterpreters.com/statements-and-state.html#environments) you can 'reevaluate' a const variable like this.
+
+```javascript
+const x = 5;
+const x;
+print x; // nil
+```
+
+```javascript
+const x = 42;
+var x;
+print x; // nil
+x = 5;
+print x; // 5
+const x = 42;
+print x; // 42
+x = 5; // "Attempted to reassign constant 'x'."
+```
+
 ## Scanning
 
 The first phase of the interpreter is the scanner (or lexer), which transforms the raw source code into a series of tokens. These tokens are then used by the parser to construct an abstract syntax tree (AST). In this implementation, the scanning process is handled by the `scanTokens` function.
@@ -17,10 +77,12 @@ The parsing phase constructs an abstract syntax tree (AST) from the list of toke
 This parser does not support the following features:
 
 - Object orientation, including classes, inheritance, and related constructs, such as dot notation (e.g., `string.print()`) and dynamic scoping for methods and fields.
-- `for` loops
 - Functions
-- Desugaring
+- Desugaring (except for for loops)
 - Static analysis, meaning type checking and ensuring that used variables have been declared
+
+However, it does support:
+- For loops with desugaring into while loops.
 
 ### Chapters Utilized
 
@@ -36,9 +98,12 @@ These chapters provide the foundation for the scanner, parser, and evaluator dev
 
 ## Interpreting
 
-(Not yet implemented)
+Chapters used:
+- [Chapter 7: Evaluating Expressions](https://craftinginterpreters.com/evaluating-expressions.html)
+- [Chapter 8: Statements and State](https://craftinginterpreters.com/statements-and-state.html)
+- [Chapter 9: Control Flow](https://craftinginterpreters.com/control-flow.html)
 
-The final phase is the interpreter, which executes the program represented by the AST. This step involves evaluating expressions, executing statements, and managing the environment in which the code runs.
+The final phase is the interpreter, which executes the program represented by the AST. This step involves evaluating expressions, executing statements, and managing the environment in which the code runs. The interpreter is capable of handling various control flow mechanisms, including if-else statements and while loops. With the addition of for loops and their desugaring, the interpreter now also supports more complex iteration patterns.
 
 ## Hooks
 
