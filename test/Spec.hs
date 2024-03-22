@@ -5,7 +5,6 @@ import Scanner (scanTokens)
 
 import Control.Exception (evaluate)
 import Data.Char (isSpace)
-import Data.Either (fromRight, isLeft)
 import Test.Hspec
 import Tokens
 
@@ -225,6 +224,14 @@ tests = do
       "1 or 2;" `shouldParseAs` "1 (1.0 || 2.0);"
     it "Parses complex and + or" $ do
       "a or b and c or d and e;" `shouldParseAs` "1 ((a || (b && c)) || (d && e));"
+    it "Parses basic and with assignment" $ do
+      -- This is not valid Lox
+      -- "false or x = \"\"" `shouldParseAs` "1 (FALSE_LIT || x = \"\");"
+      "false or (x = \"\");" `shouldParseAs` "1 (FALSE_LIT || (x = \"\"));"
+    it "Parses and or with strings" $ do
+      -- This is not valid Lox
+      -- "true or (false and x = \"\")" `shouldParseAs` "1 (TRUE_LIT || ((FALSE_LIT && (x = \"\"))));"
+      "true or (false and (x = \"\"));" `shouldParseAs` "1 (TRUE_LIT || ((FALSE_LIT && (x = \"\"))));"
 
     it "Parses simple block" $ do
       "{ 1; 2; }" `shouldParseAs` "1 { 1.0; 2.0; }"
@@ -581,11 +588,12 @@ tests = do
       "var status = \"start\"; if (true) status = \"end\"; print status;" `shouldInterpretAs` Right ["end"]
 
     it "Handles assignment in if condition" $ do
-      -- "var x; if (true and (x = true)) print x;" `shouldInterpretAs` Right ["end"] TODO: Parser bug found.
+      "var x; if (true and (x = true)) print x;" `shouldInterpretAs` Right ["true"]
       "var x; if (true and (x = true)) print x;" `shouldInterpretAs` Right ["true"]
       "var x; if (true and (x = nil)) print x;" `shouldInterpretAs` Right []
     it "Manages deeply nested operations with short-circuiting" $ do
-      -- "var x; if (true or (false and x = \"\")) x = \"short-circuit\"; print x;" `shouldInterpretAs` Right ["short-circuit"] TODO: Parser bug found.
+      -- This is not valid Lox
+      -- "var x; if (true or (false and x = \"\")) x = \"short-circuit\"; print x;" `shouldInterpretAs` Right ["short-circuit"]
       "var x; if (true or (false and (x = \"\"))) x = \"short-circuit\"; print x;" `shouldInterpretAs` Right ["short-circuit"]
 
   describe "Interpret logical operators with block scoping" $ do

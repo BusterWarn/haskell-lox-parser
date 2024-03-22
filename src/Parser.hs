@@ -510,17 +510,16 @@ unary tokens@(t : ts) =
 -}
 primary :: [Token] -> (Expr, [Token])
 primary [] = error "Empty list of Tokens!"
-primary tokens@(t@(TOKEN tokenType _ _ _) : ts)
+primary (t@(TOKEN tokenType _ _ _) : ts)
   | isLiteral t = (LiteralExpr t, ts)
   | tokenType == RETURN = (LiteralExpr t, ts)
   | tokenType == LEFT_PAREN =
       let (left, rest) = expression ts
+
           result = consume rest RIGHT_PAREN "Expect ')' after expression."
        in case result of
             Right restAfterConsume -> (GroupingExpr left, restAfterConsume)
             Left err -> (ErrorExpr err, rest)
-  -- \| otherwise = (EmptyExpr, tokens)
-
   | otherwise = (ErrorExpr $ LoxParseError "Unexpected Character" t, ts)
 
 {- |
