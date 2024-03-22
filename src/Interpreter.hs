@@ -234,7 +234,10 @@ evaluateLiteral (TOKEN _ _ literal line) env =
       (result, _) <- getVar name line env
       case result of
         Just value -> Right (env, value)
-        Nothing -> Left $ LoxRuntimeError $ "Tried to evaluate variable without assignment: '" ++ name ++ "'"
+        Nothing -> do
+          -- Default values for variables are nil
+          envAfterAssign <- assign name LoxNil line env
+          Right (envAfterAssign, LoxNil)
     _ -> Left $ LoxRuntimeError $ "Unknown literal: " ++ show literal
 
 evaluateUnary :: Token -> Expr -> Environment -> Either LoxRuntimeError (Environment, LoxValue)

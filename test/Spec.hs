@@ -475,6 +475,12 @@ tests = do
       "1 / 0;" `shouldInterpretAs` Left ""
 
   describe "Interpreter can handle variables and assignments" $ do
+    it "Empty variable should be nil" $ do
+      "var x; print x;" `shouldInterpretAs` Right ["nil"]
+      "const x; print x;" `shouldInterpretAs` Right ["nil"]
+    it "Empty variable should be reassignable" $ do
+      "var x; print x; var x = 5; print x;" `shouldInterpretAs` Right ["nil", "5"]
+      "const x; print x; const x = 5; print x;" `shouldInterpretAs` Right ["nil", "5"]
     it "load and evaluate simple variable" $ do
       "var x = 5; print x;" `shouldInterpretAs` Right ["5"]
       "const x = 5; print x;" `shouldInterpretAs` Right ["5"]
