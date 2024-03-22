@@ -6,8 +6,8 @@ import Parser (parse)
 import Scanner (scanTokens)
 import Tokens
 
+import Control.Applicative (Alternative (empty))
 import qualified Data.Map as Map
-import System.Environment (getEnvironment)
 
 {- |
   'interpret' - Interprets Lox language code.
@@ -73,28 +73,29 @@ type Environment = [Map.Map String Variable]
 
 -- Declare a new variable or redeclare an existing one
 define :: String -> Maybe LoxValue -> TokenType -> Environment -> Environment
+define name value _ [] = error $ "Internal Lox Error! Tried to define '" ++ name ++ " = " ++ show value ++ "' but received empty list. This should be impossible!"
 define name value CONST (current : outer) = Map.insert name (value, Immutable) current : outer
 define name value _ (current : outer) = Map.insert name (value, Mutable) current : outer
 
 -- Assign value to already existing variable.
-assign :: String -> LoxValue -> Environment -> Either LoxRuntimeError Environment
-assign name _ [] = Left $ LoxRuntimeError $ "Undefined variable '" ++ name ++ "'."
-assign name value (current : outer) =
+assign :: String -> LoxValue -> Int -> Environment -> Either LoxRuntimeError Environment
+assign name _ line [] = Left $ LoxRuntimeError $ "Line " ++ show line ++ ". Undefined variable '" ++ name ++ "'."
+assign name value line (current : outer) =
   case Map.lookup name current of
     Just (_, Mutable) -> Right $ Map.insert name (Just value, Mutable) current : outer
     Just (Nothing, Immutable) -> Right $ Map.insert name (Just value, Immutable) current : outer
     Just (Just _, Immutable) -> Left $ LoxRuntimeError $ "Attempted to reassign constant '" ++ name ++ "'."
     Nothing -> do
-      newOuter <- assign name value outer
+      newOuter <- assign name value line outer
       Right $ current : newOuter
 
 -- Get a variable's value, returning Either LoxRuntimeError LoxValue
-getVar :: String -> Environment -> Either LoxRuntimeError Variable
-getVar name [] = Left $ LoxRuntimeError ("Undefined variable '" ++ name ++ "'.")
-getVar name (current : outer) =
+getVar :: String -> Int -> Environment -> Either LoxRuntimeError Variable
+getVar name line [] = Left $ LoxRuntimeError ("Line " ++ show line ++ ". Undefined variable '" ++ name ++ "'.")
+getVar name line (current : outer) =
   case Map.lookup name current of
     Just variable -> Right variable
-    Nothing -> getVar name outer
+    Nothing -> getVar name line outer
 
 {- |
   'interpretStmts' - Recursively evaluates a list of statements within a given environment,
@@ -175,10 +176,16 @@ evaluateStmt (ErrorStmt expr) env = (Just $ LoxRuntimeError $ show expr, env, []
                                                          and the value resulting from the expression evaluation.
 -}
 evaluateExpr :: Expr -> Environment -> Either LoxRuntimeError (Environment, LoxValue)
--- GroupingExpr
+evaluateExpr (LiteralExpr token) env = evaluateLiteral token env
+evaluateExpr (AssignExpr token expr) env = evaluateAssignment token expr env
+evaluateExpr (UnaryExpr token expr) env = evaluateUnary token expr env
+evaluateExpr (BinaryExpr leftExpr token rightExpr) env = evaluateBinary leftExpr token rightExpr env
 evaluateExpr (GroupingExpr expr) env = evaluateExpr expr env
--- LiteralExpr
-evaluateExpr (LiteralExpr (TOKEN _ _ literal _)) env =
+evaluateExpr (ErrorExpr err) _ = Left . LoxRuntimeError $ show err
+evaluateExpr EmptyExpr env = Right (env, LoxNil)
+
+evaluateLiteral :: Token -> Environment -> Either LoxRuntimeError (Environment, LoxValue)
+evaluateLiteral (TOKEN _ _ literal line) env =
   case literal of
     NUM value -> Right (env, LoxNumber value)
     STR value -> Right (env, LoxString value)
@@ -186,80 +193,76 @@ evaluateExpr (LiteralExpr (TOKEN _ _ literal _)) env =
     FALSE_LIT -> Right (env, LoxBool False)
     NIL_LIT -> Right (env, LoxNil)
     ID name -> do
-      (result, _) <- getVar name env
+      (result, _) <- getVar name line env
       case result of
         Just value -> Right (env, value)
         Nothing -> Left $ LoxRuntimeError $ "Tried to evaluate variable without assignment: '" ++ name ++ "'"
     _ -> Left $ LoxRuntimeError $ "Unknown literal: " ++ show literal
--- UnaryExpr
-evaluateExpr (UnaryExpr (TOKEN unary _ _ _) expr) env = do
+
+evaluateUnary :: Token -> Expr -> Environment -> Either LoxRuntimeError (Environment, LoxValue)
+evaluateUnary token@(TOKEN unary _ _ line) expr env = do
   (envAfterRight, right) <- evaluateExpr expr env
   case (unary, right) of
     (MINUS, LoxNumber r) -> Right (envAfterRight, LoxNumber (-r))
     (BANG, _) -> Right (envAfterRight, LoxBool . not $ isTruthy right)
--- BinaryExpr
-evaluateExpr (BinaryExpr leftExpr (TOKEN OR _ _ _) rightExpr) env = do
+    _ -> Left . LoxRuntimeError $ "Line: " ++ show line ++ ". Unsupported unary operator: '" ++ show token ++ "'."
+
+evaluateAssignment :: Token -> Expr -> Environment -> Either LoxRuntimeError (Environment, LoxValue)
+evaluateAssignment (TOKEN _ _ (ID name) line) expr env = do
+  (envAfterEval, newValue) <- evaluateExpr expr env
+  envAfterAssign <- assign name newValue line envAfterEval
+  Right (envAfterAssign, newValue)
+evaluateAssignment (TOKEN _ _ literal line) _ _ =
+  Left . LoxRuntimeError $ "Line: " ++ show line ++ ". Expected ID literal but got '" ++ show literal ++ "'"
+
+evaluateBinary :: Expr -> Token -> Expr -> Environment -> Either LoxRuntimeError (Environment, LoxValue)
+evaluateBinary leftExpr (TOKEN OR _ _ _) rightExpr env = do
   (envAfterLeft, leftVal) <- evaluateExpr leftExpr env
   if isTruthy leftVal
     then Right (envAfterLeft, leftVal)
     else evaluateExpr rightExpr envAfterLeft
-evaluateExpr (BinaryExpr leftExpr (TOKEN AND _ _ _) rightExpr) env = do
+evaluateBinary leftExpr (TOKEN AND _ _ _) rightExpr env = do
   (envAfterLeft, leftVal) <- evaluateExpr leftExpr env
   if not . isTruthy $ leftVal
     then Right (envAfterLeft, leftVal)
     else evaluateExpr rightExpr envAfterLeft
-evaluateExpr (BinaryExpr leftExpr token rightExpr) env = do
+evaluateBinary leftExpr token@(TOKEN _ _ _ line) rightExpr env = do
   (envAfterLeft, leftVal) <- evaluateExpr leftExpr env
   (envAfterRight, rightVal) <- evaluateExpr rightExpr envAfterLeft
   case token of
     (TOKEN STAR _ _ _) -> case (leftVal, rightVal) of
       (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxNumber (l * r))
-      _ -> Left $ LoxRuntimeError $ "Binary operand '*' requires number on left and right side. Actual: " ++ show leftVal ++ " * " ++ show rightVal
+      _ -> Left $ LoxRuntimeError $ "Line: " ++ show line ++ ". Binary operand '*' requires number on left and right side. Actual: " ++ show leftVal ++ " * " ++ show rightVal
     (TOKEN SLASH _ _ _) -> case (leftVal, rightVal) of
       (LoxNumber _, LoxNumber 0) -> Left $ LoxRuntimeError $ "Division by zero: " ++ show leftVal ++ " / " ++ show rightVal
       (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxNumber (l / r))
-      _ -> Left $ LoxRuntimeError $ "Binary operand '/' requires number on left and right side. Actual: " ++ show leftVal ++ " / " ++ show rightVal
+      _ -> Left $ LoxRuntimeError $ "Line: " ++ show line ++ ". Binary operand '/' requires number on left and right side. Actual: " ++ show leftVal ++ " / " ++ show rightVal
     (TOKEN MINUS _ _ _) -> case (leftVal, rightVal) of
       (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxNumber (l - r))
-      _ -> Left $ LoxRuntimeError $ "Binary operand '-' requires number on left and right side. Actual: " ++ show leftVal ++ " - " ++ show rightVal
+      _ -> Left $ LoxRuntimeError $ "Line: " ++ show line ++ ". Binary operand '-' requires number on left and right side. Actual: " ++ show leftVal ++ " - " ++ show rightVal
     (TOKEN PLUS _ _ _) -> case (leftVal, rightVal) of
       (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxNumber (l + r))
       (LoxString l, LoxString r) -> Right (envAfterRight, LoxString (r ++ l))
-      (LoxNumber _, _) -> Left $ LoxRuntimeError $ "Binary operand '+' requires number on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
-      (_, LoxNumber _) -> Left $ LoxRuntimeError $ "Binary operand '+' requires number on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
-      (LoxString _, _) -> Left $ LoxRuntimeError $ "Binary operand '+' requires string on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
-      (_, LoxString _) -> Left $ LoxRuntimeError $ "Binary operand '+' requires string on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
-      _ -> Left $ LoxRuntimeError $ "Binary operand '+' does not support: " ++ show leftVal ++ " + " ++ show rightVal
+      (LoxNumber _, _) -> Left $ LoxRuntimeError $ "Line: " ++ show line ++ ". Binary operand '+' requires number on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
+      (_, LoxNumber _) -> Left $ LoxRuntimeError $ "Line: " ++ show line ++ ". Binary operand '+' requires number on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
+      (LoxString _, _) -> Left $ LoxRuntimeError $ "Line: " ++ show line ++ ". Binary operand '+' requires string on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
+      (_, LoxString _) -> Left $ LoxRuntimeError $ "Line: " ++ show line ++ ". Binary operand '+' requires string on left and right side. Actual: " ++ show leftVal ++ " + " ++ show rightVal
+      _ -> Left $ LoxRuntimeError $ "Line: " ++ show line ++ ". Binary operand '+' does not support: " ++ show leftVal ++ " + " ++ show rightVal
     (TOKEN EQUAL_EQUAL _ _ _) -> Right (envAfterRight, LoxBool (leftVal == rightVal))
     (TOKEN BANG_EQUAL _ _ _) -> Right (envAfterRight, LoxBool (leftVal /= rightVal))
     (TOKEN GREATER _ _ _) -> case (leftVal, rightVal) of
       (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxBool (l > r))
-      _ -> Left $ LoxRuntimeError $ "Binary operand '>' requires numbers on left and right side. Actual: " ++ show leftVal ++ " > " ++ show rightVal
+      _ -> Left $ LoxRuntimeError $ "Line: " ++ show line ++ ". Binary operand '>' requires numbers on left and right side. Actual: " ++ show leftVal ++ " > " ++ show rightVal
     (TOKEN GREATER_EQUAL _ _ _) -> case (leftVal, rightVal) of
       (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxBool (l >= r))
-      _ -> Left $ LoxRuntimeError $ "Binary operand '>=' requires numbers on left and right side. Actual: " ++ show leftVal ++ " >= " ++ show rightVal
+      _ -> Left $ LoxRuntimeError $ "Line: " ++ show line ++ ". Binary operand '>=' requires numbers on left and right side. Actual: " ++ show leftVal ++ " >= " ++ show rightVal
     (TOKEN LESS _ _ _) -> case (leftVal, rightVal) of
       (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxBool (l < r))
-      _ -> Left $ LoxRuntimeError $ "Binary operand '<' requires numbers on left and right side. Actual: " ++ show leftVal ++ " < " ++ show rightVal
+      _ -> Left $ LoxRuntimeError $ "Line: " ++ show line ++ ". Binary operand '<' requires numbers on left and right side. Actual: " ++ show leftVal ++ " < " ++ show rightVal
     (TOKEN LESS_EQUAL _ _ _) -> case (leftVal, rightVal) of
       (LoxNumber l, LoxNumber r) -> Right (envAfterRight, LoxBool (l <= r))
-      _ -> Left $ LoxRuntimeError $ "Binary operand '<=' requires numbers on left and right side. Actual: " ++ show leftVal ++ " <= " ++ show rightVal
-    (TOKEN OR _ _ _) ->
-      if isTruthy leftVal
-        then Right (envAfterRight, leftVal)
-        else Right (envAfterRight, rightVal)
-    (TOKEN AND _ _ _) ->
-      if not $ isTruthy leftVal
-        then Right (envAfterRight, leftVal)
-        else Right (envAfterRight, rightVal)
-    _ -> Left . LoxRuntimeError $ "Unsupported binary operator: '" ++ show token ++ "'."
--- AssignExpr
-evaluateExpr (AssignExpr (TOKEN _ _ (ID name) _) expr) env = do
-  (envAfterEval, newValue) <- evaluateExpr expr env
-  envAfterAssign <- assign name newValue envAfterEval
-  Right (envAfterAssign, newValue)
--- EmptyExpr TODO: Not sure if this is correct
-evaluateExpr EmptyExpr env = Right (env, LoxNil)
+      _ -> Left $ LoxRuntimeError $ "Line: " ++ show line ++ ". Binary operand '<=' requires numbers on left and right side. Actual: " ++ show leftVal ++ " <= " ++ show rightVal
+    _ -> Left . LoxRuntimeError $ "Line: " ++ show line ++ ". Unsupported binary operator: '" ++ show token ++ "'."
 
 isTruthy :: LoxValue -> Bool
 isTruthy LoxNil = False
