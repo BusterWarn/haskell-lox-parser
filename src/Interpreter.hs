@@ -6,7 +6,6 @@ import Parser (parse)
 import Scanner (scanTokens)
 import Tokens
 
-import Control.Applicative (Alternative (empty))
 import qualified Data.Map as Map
 
 {- |
@@ -106,8 +105,10 @@ getVar name line (current : outer) =
     - 'env :: Environment' - The current environment context for statement evaluation.
 
   Output:
-    - '(Maybe LoxRuntimeError, Environment, [String])' - Possible runtime error, the final getEnvironment after
-    -                                                    statement evaluations, and accumulated STDOUT from prints.
+    - '(Maybe LoxRuntimeError, Environment, [String])' - The output is a tuple containing
+      potentially an error, the updated environment after the statement's evaluation, and
+      a list of strings representing any output generated during the evaluation (e.g., by
+      print statements).
 -}
 interpretStmts :: [Stmt] -> Environment -> (Maybe LoxRuntimeError, Environment, [String])
 interpretStmts [] env = (Nothing, env, [])
@@ -119,23 +120,53 @@ interpretStmts (stmt : rest) env =
           let (nextErr, finalEnv, outputs) = interpretStmts rest newEnv
            in (nextErr, finalEnv, output ++ outputs)
 
+{- |
+  'evaluateStmt' - Evaluates a given statement within a specific environment.
+
+  Input:
+    - 'stmt :: Stmt' - The statement to be evaluated.
+    - 'env :: Environment' - The current environment in which the statement is evaluated.
+
+  Output:
+    - '(Maybe LoxRuntimeError, Environment, [String])' - The output is a tuple containing
+      potentially an error, the updated environment after the statement's evaluation, and
+      a list of strings representing any output generated during the evaluation (e.g., by
+      print statements).
+-}
 evaluateStmt :: Stmt -> Environment -> (Maybe LoxRuntimeError, Environment, [String])
-evaluateStmt (ExprStmt expr) env =
+evaluateStmt stmt env = case stmt of
+  ExprStmt expr -> evaluateExprStmt expr env
+  PrintStmt expr -> evaluatePrintStmt expr env
+  BlockStmt stmts -> evaluateBlockStmt stmts env
+  IfStmt expr ifStmt maybeStmt -> evaluateIfStmt expr ifStmt maybeStmt env
+  WhileStmt condition body -> evaluateWhileStmt condition body env
+  VarDeclStmt tokenType token EmptyExpr -> evaluateVarDeclStmt tokenType token Nothing env
+  VarDeclStmt tokenType token expr -> evaluateVarDeclStmt tokenType token (Just expr) env
+  ErrorStmt expr -> evaluateErrorStmt expr env
+
+evaluateExprStmt :: Expr -> Environment -> (Maybe LoxRuntimeError, Environment, [String])
+evaluateExprStmt expr env =
   case evaluateExpr expr env of
     Left err -> (Just err, env, [])
     Right (newEnv, _) -> (Nothing, newEnv, [])
-evaluateStmt (PrintStmt expr) env =
+
+evaluatePrintStmt :: Expr -> Environment -> (Maybe LoxRuntimeError, Environment, [String])
+evaluatePrintStmt expr env =
   case evaluateExpr expr env of
     Left err -> (Just err, env, [])
     Right (newEnv, printResult) -> (Nothing, newEnv, [show printResult])
-evaluateStmt (BlockStmt stmts) env = evaluateBlockStmts stmts (Map.empty : env) []
+
+evaluateBlockStmt :: [Stmt] -> Environment -> (Maybe LoxRuntimeError, Environment, [String])
+evaluateBlockStmt stmts env = evaluateBlockStmts stmts (Map.empty : env) []
  where
   evaluateBlockStmts [] tempEnv acc = (Nothing, tail tempEnv, acc)
   evaluateBlockStmts (s : ss) tempEnv acc =
     case evaluateStmt s tempEnv of
       (Just err, envAfterEval, prints) -> (Just err, envAfterEval, prints)
       (Nothing, envAfterEval, prints) -> evaluateBlockStmts ss envAfterEval (acc ++ prints)
-evaluateStmt (IfStmt expr stmt maybeStmt) env =
+
+evaluateIfStmt :: Expr -> Stmt -> Maybe Stmt -> Environment -> (Maybe LoxRuntimeError, Environment, [String])
+evaluateIfStmt expr stmt maybeStmt env =
   case evaluateExpr expr env of
     Left err -> (Just err, env, [])
     Right (newEnv, exprValue) ->
@@ -144,7 +175,9 @@ evaluateStmt (IfStmt expr stmt maybeStmt) env =
         else case maybeStmt of
           Just elseStmt -> evaluateStmt elseStmt newEnv
           _ -> (Nothing, newEnv, [])
-evaluateStmt (WhileStmt condition stmt) initialEnv = while initialEnv []
+
+evaluateWhileStmt :: Expr -> Stmt -> Environment -> (Maybe LoxRuntimeError, Environment, [String])
+evaluateWhileStmt condition stmt env = while env []
  where
   while env printAcc =
     case evaluateExpr condition env of
@@ -155,13 +188,18 @@ evaluateStmt (WhileStmt condition stmt) initialEnv = while initialEnv []
             (Just err, envAfterStmt, prints) -> (Just err, envAfterStmt, printAcc ++ prints)
             (Nothing, envAfterStmt, prints) -> while envAfterStmt (printAcc ++ prints)
           else (Nothing, envAfterCondition, printAcc)
-evaluateStmt (VarDeclStmt tokenType (TOKEN _ _ (ID name) _) EmptyExpr) env =
-  (Nothing, define name Nothing tokenType env, [])
-evaluateStmt (VarDeclStmt tokenType (TOKEN _ _ (ID name) _) expr) env =
-  case evaluateExpr expr env of
-    Left err -> (Just err, env, [])
-    Right (newEnv, val) -> (Nothing, define name (Just val) tokenType newEnv, [])
-evaluateStmt (ErrorStmt expr) env = (Just $ LoxRuntimeError $ show expr, env, [])
+
+evaluateVarDeclStmt :: TokenType -> Token -> Maybe Expr -> Environment -> (Maybe LoxRuntimeError, Environment, [String])
+evaluateVarDeclStmt tokenType (TOKEN _ _ (ID name) _) maybeExpr env =
+  case maybeExpr of
+    Nothing -> (Nothing, define name Nothing tokenType env, [])
+    Just expr ->
+      case evaluateExpr expr env of
+        Left err -> (Just err, env, [])
+        Right (newEnv, val) -> (Nothing, define name (Just val) tokenType newEnv, [])
+
+evaluateErrorStmt :: Expr -> Environment -> (Maybe LoxRuntimeError, Environment, [String])
+evaluateErrorStmt expr env = (Just $ LoxRuntimeError $ show expr, env, [])
 
 {- |
   'evaluateExpr' - Evaluates an expression within a given environment, returning any
