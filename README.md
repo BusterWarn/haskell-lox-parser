@@ -16,7 +16,20 @@ stack run test/fibonacci_for_loop.lox
 
 This will interpret the Lox program contained in `hello_world.lox` and execute it.
 
-## Exceptions
+### Running the Haskell Lox Interpreter without Stack
+
+1. **Compile the Source Files**
+   ```shell
+   ghc -o lox-interpreter Main.hs
+   ```
+
+2. **Run the Interpreter**
+
+   ```shell
+   ./lox-interpreter <path-to-lox-file>
+   ```
+
+## Lox Runtime Errors
 
 This Lox Interpreter will run until it hits an error, 
 
